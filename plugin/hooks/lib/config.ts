@@ -26,7 +26,7 @@ export function parseFeatures(text: string | undefined): Set<Feature> {
   return out
 }
 
-export type Env = { features?: string; logDir?: string; prune?: string; keep?: string; home: string }
+export type Env = { features?: string; logDir?: string; prune?: string; keep?: string; buffer?: string; home: string }
 
 /** Options from userConfig, then env overrides (the bench runner uses env). */
 export function resolveConfig(o: Record<string, unknown>, env: Env): Config {
@@ -35,12 +35,13 @@ export function resolveConfig(o: Record<string, unknown>, env: Env): Config {
   if (logDir.startsWith('~/')) logDir = env.home + logDir.slice(1)
   const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d)
   const envKeep = env.keep ? Number(env.keep) : NaN
+  const envBuffer = env.buffer ? Number(env.buffer) : NaN
   return {
     features: parseFeatures(env.features ?? (typeof o.features === 'string' ? o.features : 'all')),
     compactionAuto: o.compaction_auto !== false,
     compactionPrune: env.prune ? env.prune === '1' : o.compaction_prune === true,
     keepTokens: Number.isFinite(envKeep) ? envKeep : num(o.keep_tokens, 15_000),
-    compactionBuffer: num(o.compaction_buffer, 0),
+    compactionBuffer: Number.isFinite(envBuffer) ? envBuffer : num(o.compaction_buffer, 0),
     compactionTail: o.compaction_tail === 'messages' ? 'messages' : 'text',
     logDir,
     panel: o.panel === true,

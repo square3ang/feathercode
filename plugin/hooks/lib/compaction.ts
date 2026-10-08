@@ -123,6 +123,14 @@ export function isCheckpoint(m: Msg | undefined): boolean {
   return m !== undefined && m.role === 'user' && m.text.trimStart().startsWith(CHECKPOINT_OPEN)
 }
 
+/** A message's full size in tokens: text, tool inputs, results (chars/4). */
+export function messageTokens(m: Msg): number {
+  let n = m.text.length
+  for (const u of m.toolUses) n += JSON.stringify(u.input).length + (u.text?.length ?? 0)
+  for (const r of m.toolResults ?? []) n += r.text.length
+  return Math.ceil(n / 4)
+}
+
 /** chars/4, as util/token.ts estimates. */
 export function estimate(text: string): number {
   return Math.ceil(text.length / 4)

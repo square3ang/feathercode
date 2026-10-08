@@ -5,6 +5,8 @@
   python3 bench/live.py compact   # builds a long session, runs /compact, checks recall after it
   python3 bench/live.py prune     # same session shape with prune on, checks tool outputs cleared
   python3 bench/live.py toolsearch # loads deferred tools mid-session, checks for cache breaks
+  python3 bench/live.py auto      # feathercode's ceiling trigger (lowered), summary via fork
+  python3 bench/live.py engine-auto # the engine's auto threshold (lowered) through the hook
 
 Each step prints the reply head and the plugin's log lines for it; a scenario
 ends with PASS/FAIL lines. Uses the same environment handling as run.py.
@@ -135,16 +137,51 @@ def compact():
 
 def prune():
     s = Session("prune", {"FEATHERCODE_PRUNE": "1"})
-    (s.dir / "big.txt").write_text("\n".join(f"row {i} " + "x" * 200 for i in range(1800)))
+    for f in range(6):
+        (s.dir / f"part{f}.txt").write_text("\n".join(f"part {f} row {i} " + "x" * 200 for i in range(300)))
     s.say(f"Remember: {LONG_FACT} Say OK.")
-    for i in range(6):
-        s.say(f"Read big.txt with offset {i * 300 + 1} and limit 300, then tell me the first row number shown. Nothing else.")
+    for f in range(6):
+        s.say(f"Read part{f}.txt and tell me its last row number. Nothing else.")
     s.say("Say OK.")
     recs = s.log()
     pr = [r for r in recs if r.get("ev") == "prune"]
     s.check("prune cleared old outputs", bool(pr), json.dumps(pr[-1:]))
     reply = s.say("What is the deployment codename? Codename only.")
     s.check("context kept after prune", "BLUE-HERON-42" in reply)
+    return s.done()
+
+
+def auto():
+    """feathercode's own trigger (ceiling lowered to ~20k) compacts between turns, via fork."""
+    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "980000", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    build_long(s, 4)
+    recs = s.log()
+    req = [r for r in recs if r.get("ev") == "compact-request"]
+    comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") == "plugin" and not r.get("skip")]
+    summ = [r for r in recs if r.get("ev") == "summary"]
+    s.check("ceiling trigger fired", bool(req), json.dumps(req[:1]))
+    s.check("compaction ran", bool(comp), json.dumps(comp[:1]))
+    s.check("summary via fork", any(r.get("via") == "fork" and r.get("ok") for r in summ), json.dumps(summ[:2]))
+    forks = [r for r in summ if r.get("via") == "fork" and r.get("usage")]
+    if forks:
+        u = forks[0]["usage"]
+        s.check("fork read the cached prefix", u.get("cache_read_input_tokens", 0) > 0, json.dumps(u))
+    reply = s.say("What is the deployment codename I told you at the start? Codename only.")
+    s.check("context kept across compaction", "BLUE-HERON-42" in reply)
+    return s.done()
+
+
+def engine_auto():
+    """The engine's own auto threshold (lowered) goes through feathercode's compaction."""
+    s = Session("engine-auto", {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "2", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    build_long(s, 5)
+    recs = s.log()
+    comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") == "auto"]
+    summ = [r for r in recs if r.get("ev") == "summary"]
+    s.check("engine auto trigger reached the hook", bool(comp), json.dumps(comp[:1]))
+    s.check("summarised by feathercode", bool(summ), json.dumps(summ[:2]))
+    reply = s.say("What is the deployment codename I told you at the start? Codename only.")
+    s.check("context kept across compaction", "BLUE-HERON-42" in reply)
     return s.done()
 
 
@@ -170,5 +207,5 @@ def toolsearch():
 
 if __name__ == "__main__":
     which = sys.argv[1:] or ["plan", "compact", "prune", "toolsearch"]
-    ok = all([{"plan": plan, "compact": compact, "prune": prune, "toolsearch": toolsearch}[w]() for w in which])
+    ok = all([{"plan": plan, "compact": compact, "prune": prune, "toolsearch": toolsearch, "auto": auto, "engine-auto": engine_auto}[w]() for w in which])
     sys.exit(0 if ok else 1)

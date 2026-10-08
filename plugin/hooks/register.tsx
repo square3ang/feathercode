@@ -14,10 +14,10 @@ import {
   buildPrompt,
   ceiling,
   checkpoint,
-  estimate,
   hasTemplate,
   isCheckpoint,
   messageToText,
+  messageTokens,
   planPrune,
   splitConversation,
   type Msg,
@@ -309,6 +309,7 @@ async function loadCtx($: EngineInterface, ctx: Ctx, options: Record<string, unk
     logDir: await $.env.get('FEATHERCODE_LOG_DIR'),
     prune: await $.env.get('FEATHERCODE_PRUNE'),
     keep: await $.env.get('FEATHERCODE_KEEP_TOKENS'),
+    buffer: await $.env.get('FEATHERCODE_COMPACT_BUFFER'),
     home: ctx.home,
   })
   ctx.dumpPath = await $.env.get('FEATHERCODE_DUMP')
@@ -506,13 +507,13 @@ async function compact(
 
   const mode = (await $.state.get(MODE)).value ?? 'build'
   const reminder = mode === 'plan' && ctx.cfg.features.has('modes') ? `\n\n${planEnter(planDir(ctx.home))}` : ''
-  const tokensBefore = messages.reduce((n, m) => n + estimate(messageToText(m)), 0)
+  const tokensBefore = messages.reduce((n, m) => n + messageTokens(m), 0)
   let out: Msg[]
   if (ctx.cfg.compactionTail === 'messages') {
     out = [{ role: 'user', text: checkpoint(summary, '') + reminder, toolUses: [] }, ...messages.slice(split.start)]
   } else {
     out = [{ role: 'user', text: checkpoint(summary, split.recent) + reminder, toolUses: [] }]
   }
-  const tokensAfter = out.reduce((n, m) => n + estimate(m.text), 0)
+  const tokensAfter = out.reduce((n, m) => n + messageTokens(m), 0)
   return { messages: out as SessionMessage[], tokensBefore, tokensAfter }
 }
