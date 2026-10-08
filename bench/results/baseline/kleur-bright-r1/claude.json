@@ -1,0 +1,99 @@
+{
+ "duration_api_ms": 9946,
+ "stop_reason": "end_turn",
+ "session_id": "c20b8b5e-b40b-42ee-ac31-11399a8a7882",
+ "total_cost_usd": 0.0654368,
+ "usage": {
+  "input_tokens": 6,
+  "cache_creation_input_tokens": 10515,
+  "cache_read_input_tokens": 46624,
+  "output_tokens": 1404,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 10515,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 368,
+    "cache_read_input_tokens": 19888,
+    "cache_creation_input_tokens": 1103,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 1103
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 6,
+   "outputTokens": 1404,
+   "cacheReadInputTokens": 46624,
+   "cacheCreationInputTokens": 10515,
+   "webSearchRequests": 0,
+   "costUSD": 0.0654368,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "safety_stops": 0,
+ "is_error": false,
+ "num_turns": 3,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "I added `redBright` (91, closed by 39) and `bgRedBright` (101, closed by 49) in the four files you listed:\n\n- **`index.mjs`:** both are in the style table and bound in `chain()`, so `kleur.bold().redBright('x')` works.\n- **`colors.mjs`:** both are named exports.\n- **`index.d.ts` and `colors.d.ts`:** both are declared.\n\n`node build` ran and converted both `.mjs` files to `index.js` and `colors.js`. Those two CommonJS files don't show up in `git status`. They're probably gitignored, so they won't be in a commit.\n\nI checked the output with `FORCE_COLOR=1` on the built files. `kleur.bold().redBright('x')` gives `\\x1b[1m\\x1b[91mx\\x1b[22m\\x1b[39m`, and `bgRedBright('y')` gives `\\x1b[101my\\x1b[49m`. The named exports from `colors` give the same `redBright` and `bgRedBright` codes. I didn't run the repo's test suite, and I didn't add tests for the new styles.",
+ "ttft_ms": 1881,
+ "type": "result",
+ "duration_ms": 10240,
+ "uuid": "85ae4df6-eda2-4f4b-9495-91c5ba6528f2",
+ "ttft_stream_ms": 1219,
+ "time_to_request_ms": 116,
+ "first_content_frame_ms": 1221,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

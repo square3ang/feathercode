@@ -1,0 +1,4 @@
+bench/results/.claude-config/
+node_modules/
+plugin/.claude-plugin/types/
+*.tmp

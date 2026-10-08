@@ -1,0 +1,7 @@
+{
+  "id": "mit-count-runs",
+  "kind": "feature",
+  "repo": "https://github.com/more-itertools/more-itertools",
+  "commit": "64be96ceb2a6e836f76f069f4a96d2394d59fd0c",
+  "prompt": "Add a new function `count_runs(iterable, key=None)` to more_itertools. It returns the number of runs of consecutive equal elements (compared by `key(x)` when key is given). Examples: count_runs('aaabbc') == 3, count_runs([]) == 0, count_runs([1, 2, 3, 4], key=lambda x: x // 2) == 3. Put it in more_itertools/more.py (add it to __all__), add its type stub to more_itertools/more.pyi, and add unit tests to tests/test_more.py. Run `python3 -m unittest tests.test_more` to confirm."
+}

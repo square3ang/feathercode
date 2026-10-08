@@ -1,0 +1,7 @@
+{
+  "id": "kleur-bright",
+  "kind": "multi-file feature",
+  "repo": "https://github.com/lukeed/kleur",
+  "commit": "fa3454483899ddab550d08c18c028e6db1aab0e5",
+  "prompt": "Add two new styles to kleur: `redBright` (foreground, ANSI code 91, closed by 39) and `bgRedBright` (background, ANSI code 101, closed by 49). They must work in the chainable API in index.mjs (e.g. kleur.bold().redBright('x')) and as named exports in colors.mjs, and be declared in index.d.ts and colors.d.ts. Then run `node build` to regenerate the CommonJS files."
+}

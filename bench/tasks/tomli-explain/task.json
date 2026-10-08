@@ -1,0 +1,7 @@
+{
+  "id": "tomli-explain",
+  "kind": "read / locate",
+  "repo": "https://github.com/hukkin/tomli",
+  "commit": "a2a578949199336ebc3884eeba4aede87da41ef2",
+  "prompt": "In this repository, which function in src/tomli/_parser.py handles backslash escape sequences inside single-line and multi-line basic (double-quoted) strings? Write just the function name on the first line of a new file ANSWER.txt, then one sentence explaining how it handles \\uXXXX escapes."
+}

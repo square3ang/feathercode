@@ -1,0 +1,7 @@
+{
+  "id": "tomli-tabfix",
+  "kind": "debug / fix",
+  "repo": "https://github.com/hukkin/tomli",
+  "commit": "a2a578949199336ebc3884eeba4aede87da41ef2",
+  "prompt": "The test suite fails: run `PYTHONPATH=src python3 -m unittest` to see it. Find the bug in src/ and fix it. Do not modify the tests or test data."
+}
