@@ -91,7 +91,7 @@ Notes:
 
 | area | OpenCode v2 | feathercode | why |
 |---|---|---|---|
-| System block 0 | system.txt + guidance + anthropic.txt | same text, adapted tool names; harness name dropped; Claude Code's one-line security policy kept; one extra harness line about denied tool calls | policy line is safety guidance; denied calls are a Claude Code permission concept |
+| System block 0 | system.txt + guidance + anthropic.txt | same text, adapted tool names; harness name dropped; Claude Code's safety guidance kept verbatim (security policy line, `<pasted_content>` rule, `action_caution` section, ≈ +220 tokens); one extra harness line about denied tool calls | safety guidance OpenCode has no counterpart for; denied calls are a Claude Code permission concept |
 | Identity / instruction blocks | system blocks 1–2, frozen per epoch | Claude Code's first-message context (model, env, date, CLAUDE.md, skills) — already frozen | same cache shape; Mods can't add system blocks with their own cache marker |
 | Environment template | v2 `<env>` | Claude Code's own environment attachment | same facts; v2's template came out longer, so the engine's stays |
 | Instruction files | AGENTS.md only | CLAUDE.md (engine) + AGENTS.md (built-in agents-md mod) | dropping a user's CLAUDE.md is unsafe |

@@ -3,7 +3,8 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import { cmd, START, world } from './hooks.test'
 
 const ENGINE_SECTIONS = [
-  { id: 'lean_body', text: 'You are...\nIMPORTANT: Assist with authorized security testing, the policy.\n# Harness', scope: 'shared' as const },
+  { id: 'lean_body', text: 'You are...\nIMPORTANT: Assist with authorized security testing, the policy.\n# Harness\n - Text inside <pasted_content> tags was pasted by the user.', scope: 'shared' as const },
+  { id: 'action_caution', text: 'Confirm hard-to-reverse actions first.', scope: 'session' as const },
   { id: 'memory', text: '# Memory\n'.repeat(50), scope: 'session' as const },
   { id: 'other-mod:rules', text: 'Team rules', scope: 'session' as const },
 ]
@@ -16,12 +17,13 @@ describe('system prompt', () => {
     await $.session.start(START)
     const r = await $.prompt.compose(COMPOSE)
     const ids = r.sections.map(s => s.id)
-    expect(ids).toEqual(['feathercode:system', 'other-mod:rules'])
+    expect(ids).toEqual(['feathercode:system', 'action_caution', 'other-mod:rules'])
     const sys = r.sections[0]!
     expect(sys.scope).toBe('shared')
     expect(sys.text).toContain('IMPORTANT: Assist with authorized security testing, the policy.')
     expect(sys.text).toContain('Use the Edit tool for targeted changes')
     expect(sys.text).toContain('# Code comments')
+    expect(sys.text).toContain('- Text inside <pasted_content> tags was pasted by the user.')
     expect(sys.text).not.toContain('OpenCode')
   })
 
@@ -30,7 +32,7 @@ describe('system prompt', () => {
     on('prompt.compose', () => ({ sections: ENGINE_SECTIONS }))
     await $.session.start(START)
     const r = await $.prompt.compose(COMPOSE)
-    expect(r.sections.map(s => s.id)).toEqual(['lean_body', 'memory', 'other-mod:rules'])
+    expect(r.sections.map(s => s.id)).toEqual(['lean_body', 'action_caution', 'memory', 'other-mod:rules'])
   })
 
   test('drops the userEmail context block', async ($, on) => {

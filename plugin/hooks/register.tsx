@@ -30,7 +30,9 @@ import {
   GENERAL_DESCRIPTION,
   PLAN_LEAVE,
   TOOL_DESCRIPTIONS,
+  KEPT_ENGINE_SECTIONS,
   compactSkillListing,
+  findPastedContentRule,
   findPolicy,
   planDenied,
   planEnter,
@@ -58,6 +60,7 @@ type Ctx = {
   sessionId: string
   mode: Mode
   policy?: string
+  pastedRule?: string
   commands: { plan: string; build: string }
   agentsReady: boolean
   pendingPrune: boolean
@@ -119,11 +122,15 @@ export const register: Register = (on, options) => {
     if (!('sections' in r) || !r.sections) return r
     let out = r
     if (has('prompt') && e.outputStyle === null && !e.traits.includes('bare')) {
-      ctx.policy = findPolicy(r.sections.map(s => s.text)) ?? ctx.policy
-      const others = r.sections.filter(s => s.id.includes(':') && !s.id.startsWith('feathercode:'))
+      const texts = r.sections.map(s => s.text)
+      ctx.policy = findPolicy(texts) ?? ctx.policy
+      ctx.pastedRule = findPastedContentRule(texts) ?? ctx.pastedRule
+      const others = r.sections.filter(
+        s => (s.id.includes(':') && !s.id.startsWith('feathercode:')) || KEPT_ENGINE_SECTIONS.has(s.id),
+      )
       out = {
         sections: [
-          { id: 'feathercode:system', text: systemPrompt(e.tools, ctx.policy ?? POLICY_FALLBACK), scope: 'shared' as const },
+          { id: 'feathercode:system', text: systemPrompt(e.tools, ctx.policy ?? POLICY_FALLBACK, ctx.pastedRule), scope: 'shared' as const },
           ...others.filter(s => s.scope === 'shared'),
           ...others.filter(s => s.scope === 'session'),
         ],

@@ -35,7 +35,7 @@ export function toolGuidance(tools: readonly string[]): string {
  * System block 0: system.txt with tool guidance, then anthropic.txt.
  * `policy` is the engine's own safety line, kept verbatim when present.
  */
-export function systemPrompt(tools: readonly string[], policy?: string): string {
+export function systemPrompt(tools: readonly string[], policy?: string, pastedRule?: string): string {
   const guidance = toolGuidance(tools)
   return [
     'You are an AI agent running in a coding agent harness. Help the user accomplish their goals using the tools you have available.',
@@ -45,6 +45,7 @@ export function systemPrompt(tools: readonly string[], policy?: string): string 
     '- Responses are rendered as GitHub-flavored Markdown.',
     '- `<system-reminder>` blocks are harness instructions, not user-authored content. Read and follow them.',
     '- A denied tool call means the user declined it; adjust instead of retrying it unchanged.',
+    ...(pastedRule ? [pastedRule] : []),
     '- Prefer parallelizing independent tool calls.',
     ...(guidance ? [guidance] : []),
     '',
@@ -69,6 +70,22 @@ export function findPolicy(texts: readonly string[]): string | undefined {
   }
   return undefined
 }
+
+/** The engine's rule for `<pasted_content>` blocks (prompt-injection guard), verbatim. */
+export function findPastedContentRule(texts: readonly string[]): string | undefined {
+  for (const t of texts) {
+    const m = /^ ?- Text inside <pasted_content>[^\n]*$/m.exec(t)
+    if (m) return m[0].replace(/^ ?- /, '- ')
+  }
+  return undefined
+}
+
+/**
+ * Engine sections kept as the engine wrote them: safety guidance OpenCode has
+ * no counterpart for (confirm hard-to-reverse actions, report outcomes
+ * faithfully).
+ */
+export const KEPT_ENGINE_SECTIONS: ReadonlySet<string> = new Set(['action_caution'])
 
 /** Plan mode reminders (plugin/plan.ts), sent once per switch. */
 export function planEnter(directory: string): string {

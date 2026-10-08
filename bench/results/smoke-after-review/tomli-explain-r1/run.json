@@ -5,18 +5,18 @@
  "label": "smoke-after-review",
  "features": "all",
  "model": "sonnet",
- "seconds": 11.0,
+ "seconds": 9.9,
  "exit": 0,
  "result": {
-  "num_turns": 5,
-  "total_cost_usd": 0.037118,
+  "num_turns": 4,
+  "total_cost_usd": 0.050658800000000004,
   "usage": {
    "input_tokens": 8,
-   "cache_creation_input_tokens": 5359,
-   "cache_read_input_tokens": 29380,
-   "output_tokens": 979,
+   "cache_creation_input_tokens": 9530,
+   "cache_read_input_tokens": 24614,
+   "output_tokens": 760,
    "output_tokens_details": {
-    "thinking_tokens": 66
+    "thinking_tokens": 35
    },
    "server_tool_use": {
     "web_search_requests": 0,
@@ -24,19 +24,19 @@
    },
    "service_tier": "standard",
    "cache_creation": {
-    "ephemeral_1h_input_tokens": 5359,
+    "ephemeral_1h_input_tokens": 9530,
     "ephemeral_5m_input_tokens": 0
    },
    "inference_geo": "not_available",
    "iterations": [
     {
      "input_tokens": 2,
-     "output_tokens": 320,
-     "cache_read_input_tokens": 9822,
-     "cache_creation_input_tokens": 325,
+     "output_tokens": 227,
+     "cache_read_input_tokens": 9228,
+     "cache_creation_input_tokens": 302,
      "cache_creation": {
       "ephemeral_5m_input_tokens": 0,
-      "ephemeral_1h_input_tokens": 325
+      "ephemeral_1h_input_tokens": 302
      },
      "type": "message"
     }
@@ -47,20 +47,20 @@
   "modelUsage": {
    "claude-sonnet-5-5": {
     "inputTokens": 8,
-    "outputTokens": 979,
-    "cacheReadInputTokens": 29380,
-    "cacheCreationInputTokens": 5359,
+    "outputTokens": 760,
+    "cacheReadInputTokens": 24614,
+    "cacheCreationInputTokens": 9530,
     "webSearchRequests": 0,
-    "costUSD": 0.037118,
+    "costUSD": 0.050658800000000004,
     "contextWindow": 1000000,
     "maxOutputTokens": 128000,
-    "thinkingTokens": 66,
+    "thinkingTokens": 35,
     "canonicalModel": "claude-sonnet-5-5",
     "provider": "firstParty",
     "costBasis": "list"
    }
   },
-  "session_id": "2e406844-ba60-46ae-8b2d-d7193251a6d0",
+  "session_id": "641f4d01-1457-41aa-8472-b18d94276cdd",
   "is_error": false,
   "subtype": "success"
  },
@@ -68,6 +68,6 @@
  "check_output": "",
  "diffstat": "",
  "logs": [
-  "tomli-explain-r1/logs/2e406844-ba60-46ae-8b2d-d7193251a6d0.jsonl"
+  "tomli-explain-r1/logs/641f4d01-1457-41aa-8472-b18d94276cdd.jsonl"
  ]
 }
