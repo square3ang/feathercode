@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""Multi-turn `claude -p` scenarios chained with --continue (no UI needed).
+
+  python3 bench/live.py plan      # /plan blocks edits, /build lifts it, mode survives --continue
+  python3 bench/live.py compact   # builds a long session, runs /compact, checks recall after it
+  python3 bench/live.py prune     # same session shape with prune on, checks tool outputs cleared
+
+Each step prints the reply head and the plugin's log lines for it; a scenario
+ends with PASS/FAIL lines. Uses the same environment handling as run.py.
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from run import KEEP_ENV, LEAKY_PREFIXES, PLUGIN, ROOT  # noqa: E402
+
+OUT = ROOT / "bench" / "results" / "live"
+
+
+def env_for(log_dir, extra):
+    isolate = bool(os.environ.get("CLAUDE_CODE_REMOTE"))
+    if isolate:
+        env = {k: os.environ[k] for k in KEEP_ENV if k in os.environ}
+        cfg = ROOT / "bench" / "results" / ".claude-config"
+        cfg.mkdir(parents=True, exist_ok=True)
+        env["CLAUDE_CONFIG_DIR"] = str(cfg)
+    else:
+        env = {k: v for k, v in os.environ.items() if not k.startswith(LEAKY_PREFIXES)}
+    if os.geteuid() == 0:
+        env["IS_SANDBOX"] = "1"
+    env["FEATHERCODE_FEATURES"] = "all"
+    env["FEATHERCODE_LOG_DIR"] = str(log_dir)
+    env.update(extra)
+    return env
+
+
+class Session:
+    def __init__(self, name, extra=None, model=None):
+        self.dir = Path(tempfile.mkdtemp(prefix=f"fc-live-{name}-"))
+        self.log_dir = OUT / name
+        if self.log_dir.exists():
+            shutil.rmtree(self.log_dir)
+        self.log_dir.mkdir(parents=True)
+        self.env = env_for(self.log_dir, extra or {})
+        self.model = model or os.environ.get("BENCH_MODEL", "sonnet")
+        self.started = False
+        self.results = []
+        subprocess.run(["git", "init", "-q"], cwd=self.dir)
+
+    def say(self, prompt, timeout=600):
+        cmd = [os.environ.get("CLAUDE_BIN", "claude"), "-p", prompt, "--model", self.model, "--output-format", "json",
+               "--permission-mode", "bypassPermissions", "--plugin-dir", str(PLUGIN)]
+        if self.started:
+            cmd.insert(1, "--continue")
+        p = subprocess.run(cmd, cwd=self.dir, env=self.env, capture_output=True, text=True, timeout=timeout)
+        self.started = True
+        try:
+            res = json.loads(p.stdout)
+        except json.JSONDecodeError:
+            res = {"result": p.stdout[-2000:], "stderr": p.stderr[-2000:]}
+        text = res.get("result") or ""
+        u = res.get("usage") or {}
+        print(f"\n> {prompt[:100]}\n< {text[:300]!r}\n  usage in={u.get('input_tokens')} read={u.get('cache_read_input_tokens')} write={u.get('cache_creation_input_tokens')} out={u.get('output_tokens')}")
+        return text
+
+    def log(self):
+        recs = []
+        for f in sorted(self.log_dir.glob("*.jsonl")):
+            recs += [json.loads(line) for line in f.read_text().splitlines() if line.strip()]
+        return recs
+
+    def check(self, name, ok, detail=""):
+        self.results.append((name, ok))
+        print(f"{'PASS' if ok else 'FAIL'} {name} {detail}")
+
+    def done(self):
+        (self.log_dir / "result.json").write_text(json.dumps(self.results))
+        shutil.rmtree(self.dir, ignore_errors=True)
+        return all(ok for _, ok in self.results)
+
+
+def plan():
+    s = Session("plan")
+    (s.dir / "a.py").write_text("print('hi')\n")
+    s.say("/plan")
+    s.say("Change a.py so it prints 'bye' instead of 'hi'.")
+    s.check("plan blocks the edit", (s.dir / "a.py").read_text() == "print('hi')\n")
+    s.say("Write your plan for that change into a markdown file in the plan directory you were given.")
+    plans = list(Path(os.path.expanduser("~/.opencode/plan")).glob("*.md"))
+    s.check("plan dir writable", len(plans) > 0, str(plans[:3]))
+    s.say("/build")
+    s.say("Now make the change to a.py.")
+    s.check("build edits", "bye" in (s.dir / "a.py").read_text())
+    modes = [r.get("mode") for r in s.log() if r.get("ev") == "mode"]
+    s.check("mode switches logged", modes == ["plan", "build"], str(modes))
+    return s.done()
+
+
+LONG_FACT = "The deployment codename is BLUE-HERON-42."
+
+
+def build_long(s, rounds):
+    (s.dir / "data.txt").write_text("\n".join(f"line {i}: " + "lorem ipsum dolor sit amet " * 8 for i in range(400)))
+    s.say(f"Remember this for later: {LONG_FACT} Then read data.txt and tell me its line count.")
+    for i in range(rounds):
+        s.say(f"Read data.txt again and tell me what line {i * 37 % 400} says, briefly.")
+
+
+def compact():
+    s = Session("compact", {"FEATHERCODE_KEEP_TOKENS": "3000"})
+    build_long(s, 4)
+    s.say("/compact")
+    recs = s.log()
+    comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") == "manual"]
+    summ = [r for r in recs if r.get("ev") == "summary"]
+    s.check("manual compaction ran through feathercode", bool(comp) and not comp[-1].get("skip"), json.dumps(comp[-1:]))
+    s.check("summary via fork", any(r.get("via") == "fork" and r.get("ok") for r in summ), json.dumps(summ[-1:]))
+    if summ and summ[-1].get("usage"):
+        u = summ[-1]["usage"]
+        s.check("fork read the cached prefix", u.get("cache_read_input_tokens", 0) > 0, json.dumps(u))
+    reply = s.say("What is the deployment codename I told you at the start? Answer with the codename only.")
+    s.check("context kept across compaction", "BLUE-HERON-42" in reply)
+    steps = [r for r in s.log() if r.get("ev") == "step"]
+    if steps:
+        last = steps[-1]
+        print(f"  after compaction: input {last['input']} read {last['cacheRead']} write {last['cacheWrite']}")
+    return s.done()
+
+
+def prune():
+    s = Session("prune", {"FEATHERCODE_PRUNE": "1"})
+    (s.dir / "big.txt").write_text("\n".join(f"row {i} " + "x" * 200 for i in range(1800)))
+    s.say(f"Remember: {LONG_FACT} Say OK.")
+    for i in range(6):
+        s.say(f"Read big.txt with offset {i * 300 + 1} and limit 300, then tell me the first row number shown. Nothing else.")
+    s.say("Say OK.")
+    recs = s.log()
+    pr = [r for r in recs if r.get("ev") == "prune"]
+    s.check("prune cleared old outputs", bool(pr), json.dumps(pr[-1:]))
+    reply = s.say("What is the deployment codename? Codename only.")
+    s.check("context kept after prune", "BLUE-HERON-42" in reply)
+    return s.done()
+
+
+if __name__ == "__main__":
+    which = sys.argv[1:] or ["plan", "compact", "prune"]
+    ok = all([{"plan": plan, "compact": compact, "prune": prune}[w]() for w in which])
+    sys.exit(0 if ok else 1)

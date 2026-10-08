@@ -23,16 +23,34 @@
     "compaction_prune": {
       "type": "boolean",
       "title": "Prune old tool output",
-      "description": "Clear old tool outputs at turn end (OpenCode compaction.prune)",
+      "description": "Clear old tool outputs after each turn (OpenCode v1 prune; v2 removed it). Off by default.",
       "default": false
     },
-    "tail_turns": {
+    "keep_tokens": {
       "type": "number",
-      "title": "Tail turns",
-      "description": "Recent user turns kept verbatim when compacting (OpenCode compaction.tail_turns)",
-      "default": 2,
+      "title": "Keep tokens",
+      "description": "Newest conversation kept verbatim when compacting, in tokens (OpenCode v2 compaction.keep.tokens)",
+      "default": 15000,
       "min": 0,
-      "max": 20
+      "max": 200000
+    },
+    "compaction_buffer": {
+      "type": "number",
+      "title": "Compaction buffer",
+      "description": "Compact when the context reaches window minus this many tokens; 0 uses OpenCode's max(10%, 16k) (OpenCode v2 compaction.buffer)",
+      "default": 0,
+      "min": 0,
+      "max": 500000
+    },
+    "compaction_tail": {
+      "type": "string",
+      "title": "Recent context form",
+      "description": "How the kept recent part is carried: text (OpenCode v2, flattened into the checkpoint) or messages (the original messages, verbatim)",
+      "options": [
+        "text",
+        "messages"
+      ],
+      "default": "text"
     },
     "log_dir": {
       "type": "string",
@@ -46,5 +64,6 @@
       "description": "Open the token/cache panel at session start where a UI exists",
       "default": false
     }
-  }
+  },
+  "types": "./types/index.d.ts"
 }

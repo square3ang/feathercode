@@ -2,10 +2,10 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 /** The world beneath the plugin: env, session facts, an in-memory fs. */
-export function world(on: On, env: Record<string, string> = {}) {
+export function world(on: On, env: Record<string, string> = {}, store: Record<string, unknown> = {}) {
   const files = new Map<string, string>()
   mock.env(on, { HOME: '/home/u', FEATHERCODE_LOG_DIR: '/logs', ...env })
-  mock.store(on)
+  mock.store(on, store)
   on('session.id', () => ({ value: 'sess-1' }))
   on('session.model', () => ({ value: 'claude-sonnet-5-5' }))
   on('session.cwd', () => ({ value: '/work' }))
@@ -22,6 +22,10 @@ export function world(on: On, env: Record<string, string> = {}) {
   return files
 }
 
+export const START = { cwd: '/work', surface: null, isInteractive: false } as never
+export const cmd = (command: string, args = '') =>
+  ({ command, args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } }) as never
+
 test('logs each request and reports it in /feathercode-stats', async ($, on) => {
   const files = world(on, { FEATHERCODE_FEATURES: 'observe' })
   on('turn.step', async function* () {
@@ -35,13 +39,13 @@ test('logs each request and reports it in /feathercode-stats', async ($, on) => 
     }
   })
   on('turn.complete', ($, e) => ({ text: e.answer }))
-  await $.session.start({ cwd: '/work' })
+  await $.session.start(START)
   const stream = $.turn.step({ turnId: 't', index: 0, model: 'm', messageCount: 1 })
   for await (const _ of stream) {
     // drain
   }
   await stream
-  const out = await $.command.run({ command: 'feathercode-stats', args: '' })
+  const out = await $.command.run(cmd('feathercode-stats'))
   expect(out.text).toContain('requests 1')
   expect(out.text).toContain('cache read 100')
   expect(out.text).toContain('observe only')

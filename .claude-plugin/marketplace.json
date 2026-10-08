@@ -1,0 +1,14 @@
+{
+  "name": "feathercode",
+  "description": "feathercode: OpenCode v2 harness ported to a Claude Code mod",
+  "owner": {
+    "name": "square3ang"
+  },
+  "plugins": [
+    {
+      "name": "feathercode",
+      "source": "./plugin",
+      "description": "OpenCode-style lean harness for Claude Code"
+    }
+  ]
+}
