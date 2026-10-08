@@ -1,0 +1,1 @@
+[["ceiling trigger fired", true], ["compaction ran", true], ["summary via fork", true], ["fork read the cached prefix", true], ["context kept across compaction", true]]

@@ -154,7 +154,7 @@ def prune():
 
 def auto():
     """feathercode's own trigger (ceiling lowered to ~20k) compacts between turns, via fork."""
-    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "990000", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "990800", "FEATHERCODE_KEEP_TOKENS": "3000"})
     build_long(s, 6)
     recs = s.log()
     req = [r for r in recs if r.get("ev") == "compact-request"]
