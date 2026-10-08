@@ -137,10 +137,11 @@ def compact():
 
 def prune():
     s = Session("prune", {"FEATHERCODE_PRUNE": "1"})
-    for f in range(6):
-        (s.dir / f"part{f}.txt").write_text("\n".join(f"part {f} row {i} " + "x" * 200 for i in range(300)))
+    words = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore " * 2
+    for f in range(10):
+        (s.dir / f"part{f}.txt").write_text("\n".join(f"part {f} row {i} {words}" for i in range(150)))
     s.say(f"Remember: {LONG_FACT} Say OK.")
-    for f in range(6):
+    for f in range(10):
         s.say(f"Use the Read tool to read the whole of part{f}.txt (no Bash), then tell me its last row number. Nothing else.")
     s.say("Say OK.")
     recs = s.log()
@@ -153,11 +154,11 @@ def prune():
 
 def auto():
     """feathercode's own trigger (ceiling lowered to ~20k) compacts between turns, via fork."""
-    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "984000", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "990000", "FEATHERCODE_KEEP_TOKENS": "3000"})
     build_long(s, 6)
     recs = s.log()
     req = [r for r in recs if r.get("ev") == "compact-request"]
-    comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") == "plugin" and not r.get("skip")]
+    comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") in ("plugin", "manual") and not r.get("skip")]
     summ = [r for r in recs if r.get("ev") == "summary"]
     s.check("ceiling trigger fired", bool(req), json.dumps(req[:1]))
     s.check("compaction ran", bool(comp), json.dumps(comp[:1]))

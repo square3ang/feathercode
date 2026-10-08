@@ -45,6 +45,8 @@ import { deferralFor } from './lib/tools'
 const MODE = { plugin: 'feathercode', key: 'mode' } as const
 const STATS_VERSION = { plugin: 'feathercode', key: 'statsVersion' } as const
 const PANE = 'feathercode-stats'
+/** /compact instructions that ask for a prune (headless sessions queue one). */
+const PRUNE_MARK = '__feathercode_prune__'
 /** Built-in agent types the feathercode ones replace. */
 const REPLACED_AGENTS = new Set(['Explore', 'general-purpose', 'Plan', 'claude'])
 /** Fallback for the engine's security line until a compose has shown it. */
@@ -445,12 +447,24 @@ async function maybeCompact($: EngineInterface, ctx: Ctx, tokens: number, window
   }
   if (!due && !ctx.pendingPrune) return
   ctx.compacting = true
+  const reason = due ? 'ceiling' : 'prune'
   try {
     if (due) ctx.pendingPrune = false
-    writeLog(ctx.log, { t: Date.now(), ev: 'compact-request', reason: due ? 'ceiling' : 'prune', tokens, limit })
+    writeLog(ctx.log, { t: Date.now(), ev: 'compact-request', reason, tokens, limit })
     await $.session.compact()
   } catch (err) {
+    // Headless (-p / SDK) sessions refuse $.session.compact between turns; a
+    // queued /compact runs as a turn of its own, with the prune marker as its
+    // instructions when that is what was asked.
     writeLog(ctx.log, { t: Date.now(), ev: 'error', where: 'maybeCompact', error: String(err) })
+    if (/headless/.test(String(err))) {
+      try {
+        await $.command.run({ command: 'compact', args: reason === 'prune' ? PRUNE_MARK : '' })
+        writeLog(ctx.log, { t: Date.now(), ev: 'compact-request', reason, via: 'command' })
+      } catch (err2) {
+        writeLog(ctx.log, { t: Date.now(), ev: 'error', where: 'maybeCompact.command', error: String(err2) })
+      }
+    }
   } finally {
     ctx.compacting = false
   }
@@ -465,7 +479,7 @@ async function compact(
 ): Promise<SessionCompactResult> {
   if (e.trigger === 'precompute') return { skip: 'feathercode compacts on demand' }
   const messages = e.messages as readonly Msg[]
-  if (e.trigger === 'plugin' && ctx.pendingPrune) {
+  if ((e.trigger === 'plugin' && ctx.pendingPrune) || e.instructions === PRUNE_MARK) {
     ctx.pendingPrune = false
     const plan = planPrune(messages)
     if (plan.ids.size === 0) return { skip: 'nothing to prune' }
