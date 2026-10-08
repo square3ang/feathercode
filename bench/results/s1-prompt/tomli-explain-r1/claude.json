@@ -1,0 +1,99 @@
+{
+ "duration_api_ms": 8125,
+ "stop_reason": "end_turn",
+ "session_id": "8afbb659-7b8a-4e17-a649-b0a54f426057",
+ "total_cost_usd": 0.043896,
+ "usage": {
+  "input_tokens": 8,
+  "cache_creation_input_tokens": 6375,
+  "cache_read_input_tokens": 57950,
+  "output_tokens": 679,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 6375,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 206,
+    "cache_read_input_tokens": 16939,
+    "cache_creation_input_tokens": 288,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 288
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 8,
+   "outputTokens": 679,
+   "cacheReadInputTokens": 57950,
+   "cacheCreationInputTokens": 6375,
+   "webSearchRequests": 0,
+   "costUSD": 0.043896,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "safety_stops": 0,
+ "is_error": false,
+ "num_turns": 4,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "The function is `parse_basic_str_escape`. I wrote `ANSWER.txt` with that name on the first line. The second line explains the `\\uXXXX` handling in one sentence.\n\nFor `\\uXXXX`, it calls `parse_hex_char(src, pos, 4)`. That reads exactly four hex digits and rejects invalid or short input. It also rejects values that aren't Unicode scalar values, such as surrogates, and otherwise returns `chr()` of the value.\n\nThe multi-line case reuses the same function through the wrapper `parse_basic_str_escape_multiline`, which passes `multiline=True`.",
+ "ttft_ms": 1815,
+ "type": "result",
+ "duration_ms": 8372,
+ "uuid": "05286a53-1de4-49fa-a86b-df0f9c297e42",
+ "ttft_stream_ms": 1194,
+ "time_to_request_ms": 121,
+ "first_content_frame_ms": 1195,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

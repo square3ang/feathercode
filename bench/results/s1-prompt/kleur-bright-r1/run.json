@@ -1,0 +1,73 @@
+{
+ "task": "kleur-bright",
+ "kind": "multi-file feature",
+ "rep": 1,
+ "label": "s1-prompt",
+ "features": "prompt",
+ "model": "sonnet",
+ "seconds": 10.7,
+ "exit": 0,
+ "result": {
+  "num_turns": 3,
+  "total_cost_usd": 0.0918708,
+  "usage": {
+   "input_tokens": 6,
+   "cache_creation_input_tokens": 18600,
+   "cache_read_input_tokens": 32444,
+   "output_tokens": 1097,
+   "output_tokens_details": {
+    "thinking_tokens": 35
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 18600,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "not_available",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 351,
+     "cache_read_input_tokens": 17531,
+     "cache_creation_input_tokens": 1069,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 1069
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "modelUsage": {
+   "claude-sonnet-5-5": {
+    "inputTokens": 6,
+    "outputTokens": 1097,
+    "cacheReadInputTokens": 32444,
+    "cacheCreationInputTokens": 18600,
+    "webSearchRequests": 0,
+    "costUSD": 0.0918708,
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "thinkingTokens": 35,
+    "canonicalModel": "claude-sonnet-5-5",
+    "provider": "firstParty",
+    "costBasis": "list"
+   }
+  },
+  "session_id": "21b68eff-de9c-4042-a54a-086a47fbee67",
+  "is_error": false,
+  "subtype": "success"
+ },
+ "pass": true,
+ "check_output": "",
+ "diffstat": " colors.d.ts | 2 ++\n colors.mjs  | 2 ++\n index.d.ts  | 2 ++\n index.mjs   | 4 ++++\n 4 files changed, 10 insertions(+)\n",
+ "logs": [
+  "kleur-bright-r1/logs/21b68eff-de9c-4042-a54a-086a47fbee67.jsonl"
+ ]
+}

@@ -1,0 +1,99 @@
+{
+ "duration_api_ms": 9116,
+ "stop_reason": "end_turn",
+ "session_id": "21b68eff-de9c-4042-a54a-086a47fbee67",
+ "total_cost_usd": 0.0918708,
+ "usage": {
+  "input_tokens": 6,
+  "cache_creation_input_tokens": 18600,
+  "cache_read_input_tokens": 32444,
+  "output_tokens": 1097,
+  "output_tokens_details": {
+   "thinking_tokens": 35
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 18600,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 351,
+    "cache_read_input_tokens": 17531,
+    "cache_creation_input_tokens": 1069,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 1069
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 6,
+   "outputTokens": 1097,
+   "cacheReadInputTokens": 32444,
+   "cacheCreationInputTokens": 18600,
+   "webSearchRequests": 0,
+   "costUSD": 0.0918708,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 35,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "safety_stops": 0,
+ "is_error": false,
+ "num_turns": 3,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "I added `redBright` (91, closed by 39) and `bgRedBright` (101, closed by 49) to kleur.\n\n- **`index.mjs`:** both styles are in the style table and the chain bindings, so `kleur.bold().redBright('x')` works.\n- **`colors.mjs`:** both are named exports.\n- **Types:** both are declared in `index.d.ts` and `colors.d.ts`.\n\n`node build` regenerated `index.js` and `colors.js`. Git doesn't list them as changed, so they're probably gitignored. I checked the generated files with a quick script, using `FORCE_COLOR=1` so colors were on. `kleur.bold().redBright('x')` gives `\\x1b[1m\\x1b[91mx\\x1b[22m\\x1b[39m`. The `colors` exports give `\\x1b[91mx\\x1b[39m` and `\\x1b[101my\\x1b[49m`. I didn't run the test suite.",
+ "ttft_ms": 1909,
+ "type": "result",
+ "duration_ms": 9420,
+ "uuid": "716b9fa1-8812-4624-903f-699ac66bcf33",
+ "ttft_stream_ms": 1295,
+ "time_to_request_ms": 128,
+ "first_content_frame_ms": 1297,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

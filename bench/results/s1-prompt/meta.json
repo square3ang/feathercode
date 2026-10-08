@@ -1,0 +1,8 @@
+{
+ "label": "s1-prompt",
+ "features": "prompt",
+ "model": "sonnet",
+ "claude": "2.1.293 (Claude Code)",
+ "isolate": true,
+ "time": "2026-10-08T02:49:07"
+}
