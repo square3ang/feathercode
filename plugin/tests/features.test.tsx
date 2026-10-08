@@ -227,3 +227,25 @@ describe('compaction', () => {
     expect(out.at(-1)!.handle).toBe('a9')
   })
 })
+
+describe('stats panel', () => {
+  test('the pane draws the stats on terminal and desktop; headless falls back to text', async ($, on) => {
+    world(on)
+    on('turn.complete', ($, e) => ({ text: e.answer }))
+    await $.session.start(START)
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({
+        plugin: 'feathercode',
+        surface,
+        component: 'Pane',
+        requestId: 'feathercode-stats',
+        props: { title: 'feathercode', isFocused: false, bodyColumns: 80, placement: 'dock', scroll: {} } as never,
+      })
+      expect(await ui.find({ type: 'Text', text: /feathercode stats/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /cache read/ })).toBeDefined()
+      await ui.unmount()
+    }
+    const out = await $.command.run(cmd('feathercode-panel'))
+    expect(out.text).toContain('feathercode stats')
+  })
+})

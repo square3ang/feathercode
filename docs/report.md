@@ -67,6 +67,7 @@ Remaining break causes the mod can't remove (by design or by API):
 | `auto` (feathercode's own v2 ceiling, lowered to 9.2k) | ✅ ceiling reached → in `-p` `$.session.compact()` is refused (headless), so a `/compact` is queued; summary via fork (9,205 cached); context kept |
 | `prune` (opt-in) | ✅ after a turn, 7 old Read outputs (~88k tokens by chars/4) replaced with `[Old tool result content cleared]`; context kept |
 | `toolsearch` | ✅ no cache break (see §2) |
+| subagents + permissions (one `-p` run, `--disallowedTools Write`) | ✅ `feathercode:explore` spawned and answered (used Bash read-only); Write refused by the settings rule with the mod loaded; the model's agent list shows `feathercode:explore`, `feathercode:general`, `statusline-setup` only |
 
 After a compaction, the next request reads the cross-session system+tools
 prefix (4,788) and writes the new conversation once: the expected single
