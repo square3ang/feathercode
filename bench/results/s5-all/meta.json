@@ -1,0 +1,8 @@
+{
+ "label": "s5-all",
+ "features": "all",
+ "model": "sonnet",
+ "claude": "2.1.293 (Claude Code)",
+ "isolate": true,
+ "time": "2026-10-08T03:12:42"
+}

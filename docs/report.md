@@ -19,6 +19,7 @@ plan usage); `$` is Claude Code's own `total_cost_usd`.
 | 2 | + context/attachments | 4/4 | 13,396 | 22,135 | 250,633 | 95,009 | −16.4% | 0.190 |
 | 3 | + tools | 4/4 | 7,333 | 22,952 | 112,958 | 78,654 | −30.8% | 0.157 |
 | 4 | + build/plan, agents | 4/4 | 7,144 | 20,988 | 127,961 | 74,966 | −34.1% | 0.150 |
+| 5 (= all) | + compaction | 4/4 | 7,144 | 21,488 | 120,015 | 76,249 | −32.9% | 0.152 |
 
 - **Success rate never dropped** (4/4 at every stage), so no stage was reverted.
 - Stage 1 is small in the cloud because `-p` here already gets Claude Code's
@@ -56,9 +57,34 @@ Remaining break causes the mod can't remove (by design or by API):
 - **Mods/settings changing a cached answer mid-session** (`$.ui.invalidate`): feathercode never invalidates.
 - **CLAUDE.md edits**: picked up after compaction or `/clear` only, as v2 does with its epoch.
 
-## 3. Compaction
+## 3. Compaction and modes (live, `bench/live.py`, `-p` chained with `--continue`)
 
-_Filled in from `bench/live.py` below._
+| scenario | result |
+|---|---|
+| `plan` | ✅ `/plan` → the edit request is declined, the file untouched; plan file written to `~/.opencode/plan/`; `/build` → the edit is made; mode restored in each new `--continue` process |
+| `compact` (manual `/compact` as the first thing a process does) | ✅ checkpoint (20 messages → 1), the codename from the first turn recalled afterwards. The summary used the `$.model.complete` fallback: a fresh process has no request to fork yet (`nothing-to-fork`) |
+| `engine-auto` (Claude Code's own threshold lowered with `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1`) | ✅ the engine's `auto` trigger reaches feathercode's hook; summary via `$.model.fork`, which **read 9,522 tokens from cache** (input 937); context kept |
+| `auto` (feathercode's own v2 ceiling, lowered to 9.2k) | ✅ ceiling reached → in `-p` `$.session.compact()` is refused (headless), so a `/compact` is queued; summary via fork (9,205 cached); context kept |
+| `prune` (opt-in) | ✅ after a turn, 7 old Read outputs (~88k tokens by chars/4) replaced with `[Old tool result content cleared]`; context kept |
+| `toolsearch` | ✅ no cache break (see §2) |
+
+After a compaction, the next request reads the cross-session system+tools
+prefix (4,788) and writes the new conversation once: the expected single
+re-write.
+
+Notes:
+
+- **Headless (`-p`/SDK)**: Claude Code refuses `$.session.compact()` between
+  turns there ("compaction here runs inside a turn"). feathercode then queues
+  `/compact` through `$.command.run`; it runs as an extra turn after the
+  answer, so a `-p` run's JSON `result` becomes the compaction's (empty) text
+  and the run takes longer (~1 min in the test). Interactive sessions call
+  `$.session.compact()` directly. Mid-turn, the engine's own threshold covers
+  overflow in both.
+- `tokensBefore`/`tokensAfter` in the log are chars/4 estimates of what the
+  hook sees; `-p` transcripts drop Bash stdout from the stored record, so
+  they undercount there.
+- Compaction of a subagent's own conversation is left to the engine.
 
 ## 4. Differences from OpenCode v2
 

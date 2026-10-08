@@ -195,6 +195,45 @@
 | total_tokens_reminder | 17 | 0 |
 | session_context | 4 | 0 |
 
+## s5-all
+
+### s5-all — features `all` · model sonnet · 2.1.293 (Claude Code)
+
+| task | pass | req (sub) | input | output | cache read | cache write | hit % | breaks | first prompt | sys chars | tools listed (chars) | turns | sec | cost $ |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| kleur-bright#1 | ✅ | 3 (0) | 6 | 1,385 | 22,496 | 6,788 | 76.8 | 0 | 7,166 | 2,316 | 7 (3,775) | 3 | 14.6 | 0.046 |
+| mit-count-runs#1 | ✅ | 5 (0) | 10 | 1,726 | 40,425 | 5,958 | 87.1 | 0 | 7,219 | 2,316 | 7 (3,775) | 5 | 53.4 | 0.049 |
+| tomli-explain#1 | ✅ | 4 (0) | 8 | 620 | 28,375 | 4,307 | 86.8 | 0 | 7,114 | 2,316 | 7 (3,775) | 4 | 13.1 | 0.029 |
+| tomli-tabfix#1 | ✅ | 4 (0) | 8 | 517 | 28,719 | 4,435 | 86.6 | 0 | 7,078 | 2,316 | 7 (3,775) | 4 | 11.7 | 0.029 |
+| **total** | 4/4 | 16 | 32 | 4,248 | 120,015 | 21,488 | 84.8 | 0 | | | | | 93 | 0.152 |
+
+#### cache breaks (all tasks)
+
+| cause (candidate) | breaks | tokens re-written |
+|---|---|---|
+| (no cache breaks) | 0 | 0 |
+
+<details><summary>break details</summary>
+
+| loop | turn/step | lost | gap s | causes |
+|---|---|---|---|---|
+
+</details>
+
+#### attachments (all tasks)
+
+| attachment | count | chars |
+|---|---|---|
+| skill_listing | 4 | 11,436 |
+| agent_listing_delta | 4 | 4,284 |
+| deferred_tools_delta | 8 | 3,364 |
+| environment | 4 | 2,807 |
+| remote_session_change | 4 | 2,180 |
+| model | 4 | 512 |
+| date | 4 | 108 |
+| total_tokens_reminder | 16 | 0 |
+| session_context | 4 | 0 |
+
 ## comparison (vs first)
 
 weighted = input + 2×cache write (1h TTL) + 0.1×cache read + 5×output: API-price-equivalent input tokens, a proxy for plan usage.
@@ -206,3 +245,4 @@ weighted = input + 2×cache write (1h TTL) + 0.1×cache read + 5×output: API-pr
 | s2-cache | 4/4 | 18 | 13,396 | 36 | 5,128 | 250,633 | 22,135 | 91.9 | 0 | 95,009 | -16.4% | -34.8% | +0.5% | 55 |
 | s3-tools | 4/4 | 15 | 7,333 | 30 | 4,285 | 112,958 | 22,952 | 83.1 | 0 | 78,654 | -30.8% | -32.4% | -54.7% | 87 |
 | s4-modes | 4/4 | 17 | 7,144 | 34 | 4,032 | 127,961 | 20,988 | 85.9 | 0 | 74,966 | -34.1% | -38.2% | -48.7% | 119 |
+| s5-all | 4/4 | 16 | 7,144 | 32 | 4,248 | 120,015 | 21,488 | 84.8 | 0 | 76,249 | -32.9% | -36.7% | -51.9% | 93 |

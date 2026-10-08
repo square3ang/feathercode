@@ -1,0 +1,73 @@
+{
+ "task": "tomli-tabfix",
+ "kind": "debug / fix",
+ "rep": 1,
+ "label": "s5-all",
+ "features": "all",
+ "model": "sonnet",
+ "seconds": 11.7,
+ "exit": 0,
+ "result": {
+  "num_turns": 4,
+  "total_cost_usd": 0.028669800000000002,
+  "usage": {
+   "input_tokens": 8,
+   "cache_creation_input_tokens": 4435,
+   "cache_read_input_tokens": 28719,
+   "output_tokens": 517,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 4435,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "not_available",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 138,
+     "cache_read_input_tokens": 8794,
+     "cache_creation_input_tokens": 429,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 429
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "modelUsage": {
+   "claude-sonnet-5-5": {
+    "inputTokens": 8,
+    "outputTokens": 517,
+    "cacheReadInputTokens": 28719,
+    "cacheCreationInputTokens": 4435,
+    "webSearchRequests": 0,
+    "costUSD": 0.028669800000000002,
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "thinkingTokens": 0,
+    "canonicalModel": "claude-sonnet-5-5",
+    "provider": "firstParty",
+    "costBasis": "list"
+   }
+  },
+  "session_id": "2435f3c2-c6a2-47fa-aff9-bdd5bb0010f3",
+  "is_error": false,
+  "subtype": "success"
+ },
+ "pass": true,
+ "check_output": "",
+ "diffstat": " src/tomli/_parser.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n",
+ "logs": [
+  "tomli-tabfix-r1/logs/2435f3c2-c6a2-47fa-aff9-bdd5bb0010f3.jsonl"
+ ]
+}
