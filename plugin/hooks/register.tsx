@@ -329,7 +329,6 @@ async function loadCtx($: EngineInterface, ctx: Ctx): Promise<void> {
     version: v.version,
     model: await $.session.model(),
     surfaces: await $.session.surfaces(),
-    cwd: await $.session.cwd(),
     features: [...ctx.cfg.features],
   })
   await flush($, ctx)

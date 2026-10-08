@@ -78,6 +78,11 @@ their settings and the permission mode.
   switch between `/plan` and `/build`.
 - **Stored values**: `$.store` keeps the current mode per session id, so
   `--continue` / `--resume` restore it.
+- **What the log holds**: per request, token counts (input, output, cache
+  read/write), model, tool names, attachment types and sizes, system prompt
+  section ids and sizes, and compaction counts. No conversation text, no file
+  contents, no paths, names or emails. It stays in the plugin folder and is
+  sent nowhere.
 - **No credentials, no environment variables and no network calls** of the
   mod's own: it reads nothing from the environment and sends nothing anywhere
   but the session's own model requests.
