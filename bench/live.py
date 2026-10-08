@@ -141,7 +141,7 @@ def prune():
         (s.dir / f"part{f}.txt").write_text("\n".join(f"part {f} row {i} " + "x" * 200 for i in range(300)))
     s.say(f"Remember: {LONG_FACT} Say OK.")
     for f in range(6):
-        s.say(f"Read part{f}.txt and tell me its last row number. Nothing else.")
+        s.say(f"Use the Read tool to read the whole of part{f}.txt (no Bash), then tell me its last row number. Nothing else.")
     s.say("Say OK.")
     recs = s.log()
     pr = [r for r in recs if r.get("ev") == "prune"]
@@ -153,8 +153,8 @@ def prune():
 
 def auto():
     """feathercode's own trigger (ceiling lowered to ~20k) compacts between turns, via fork."""
-    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "980000", "FEATHERCODE_KEEP_TOKENS": "3000"})
-    build_long(s, 4)
+    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "984000", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    build_long(s, 6)
     recs = s.log()
     req = [r for r in recs if r.get("ev") == "compact-request"]
     comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") == "plugin" and not r.get("skip")]
@@ -173,8 +173,8 @@ def auto():
 
 def engine_auto():
     """The engine's own auto threshold (lowered) goes through feathercode's compaction."""
-    s = Session("engine-auto", {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "2", "FEATHERCODE_KEEP_TOKENS": "3000"})
-    build_long(s, 5)
+    s = Session("engine-auto", {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "1", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    build_long(s, 8)
     recs = s.log()
     comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") == "auto"]
     summ = [r for r in recs if r.get("ev") == "summary"]

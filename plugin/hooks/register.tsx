@@ -64,6 +64,8 @@ type Ctx = {
   agentsReady: boolean
   pendingPrune: boolean
   compacting: boolean
+  /** The last main-loop request's input + cache read/write + output (v2's measured size). */
+  lastMainTokens: number
 }
 
 export const register: Register = (on, options) => {
@@ -79,6 +81,7 @@ export const register: Register = (on, options) => {
     agentsReady: false,
     pendingPrune: false,
     compacting: false,
+    lastMainTokens: 0,
   }
   ctx.cfg.features = parseFeatures(typeof o.features === 'string' ? o.features : 'all')
   const has = (f: Feature) => ctx.cfg.features.has(f)
@@ -107,7 +110,7 @@ export const register: Register = (on, options) => {
   on('session.measure', async ($, e, next) => {
     if (e.changed.includes('context')) {
       writeLog(ctx.log, { t: Date.now(), ev: 'measure', tokens: e.context.tokens, window: e.context.window, percent: e.context.percent })
-      if (has('compact')) await maybeCompact($, ctx, e.context.tokens ?? 0, e.context.window)
+      if (has('compact')) await maybeCompact($, ctx, Math.max(e.context.tokens ?? 0, ctx.lastMainTokens), e.context.window)
     }
     return next(e)
   })
@@ -263,6 +266,7 @@ export const register: Register = (on, options) => {
     const started = Date.now()
     const r = yield* next(e)
     const rec = ctx.stats.step(e, r.usage, started, Date.now())
+    if (e.agentId === undefined && r.usage) ctx.lastMainTokens = rec.input + rec.cacheRead + rec.cacheWrite + rec.output
     writeLog(ctx.log, { t: started, ev: 'step', ...rec, ms: Date.now() - started, stop: r.stopReason, tools: r.toolUses.map(t => t.name) })
     void flush($, ctx)
     return r
