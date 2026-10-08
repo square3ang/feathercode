@@ -4,6 +4,7 @@
   python3 bench/live.py plan      # /plan blocks edits, /build lifts it, mode survives --continue
   python3 bench/live.py compact   # builds a long session, runs /compact, checks recall after it
   python3 bench/live.py prune     # same session shape with prune on, checks tool outputs cleared
+  python3 bench/live.py toolsearch # loads deferred tools mid-session, checks for cache breaks
 
 Each step prints the reply head and the plugin's log lines for it; a scenario
 ends with PASS/FAIL lines. Uses the same environment handling as run.py.
@@ -147,7 +148,27 @@ def prune():
     return s.done()
 
 
+def toolsearch():
+    """Loads deferred tools mid-session and checks the cache reads around it."""
+    s = Session("toolsearch")
+    nb = {"cells": [{"cell_type": "code", "metadata": {}, "source": ["print('hi')"], "outputs": [], "execution_count": None}],
+          "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+    (s.dir / "nb.ipynb").write_text(json.dumps(nb))
+    s.say("Read nb.ipynb and tell me what the cell prints.")
+    s.say("Use the NotebookEdit tool (load it with ToolSearch first) to change that cell so it prints 'bye'. Then say done.")
+    s.say("Now use the Workflow tool's schema lookup via ToolSearch (just load it with ToolSearch, do not run it) and tell me its first parameter name.")
+    recs = s.log()
+    searches = [r for r in recs if r.get("ev") == "tool" and r.get("tool") == "ToolSearch"]
+    steps = [r for r in recs if r.get("ev") == "step" and r.get("loop") == "main"]
+    breaks = [r for r in steps if r.get("isBreak")]
+    s.check("ToolSearch was used", len(searches) > 0, f"{len(searches)} calls")
+    s.check("no cache break after loading deferred tools", not breaks, json.dumps([{k: b[k] for k in ("index", "lost", "causes")} for b in breaks]))
+    for st in steps:
+        print(f"  step {st['turnId'][:6]}/{st['index']}: read {st['cacheRead']} write {st['cacheWrite']} tools {st.get('tools')} break={st['isBreak']}")
+    return s.done()
+
+
 if __name__ == "__main__":
-    which = sys.argv[1:] or ["plan", "compact", "prune"]
-    ok = all([{"plan": plan, "compact": compact, "prune": prune}[w]() for w in which])
+    which = sys.argv[1:] or ["plan", "compact", "prune", "toolsearch"]
+    ok = all([{"plan": plan, "compact": compact, "prune": prune, "toolsearch": toolsearch}[w]() for w in which])
     sys.exit(0 if ok else 1)
