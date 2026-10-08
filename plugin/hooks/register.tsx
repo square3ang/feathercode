@@ -24,7 +24,7 @@ import {
 } from './lib/compaction'
 import { parseFeatures, resolveConfig, type Config, type Feature } from './lib/config'
 import { attachLog, createLog, takeFlush, writeLog, type JsonlLog } from './lib/log'
-import { planAllows, planDir, EDIT_TOOLS } from './lib/modes'
+import { isInside, planDir } from './lib/modes'
 import {
   DROPPED_ATTACHMENTS,
   EXPLORE_DESCRIPTION,
@@ -200,14 +200,28 @@ export const register: Register = (on, options) => {
 
   // ---- build / plan (phase 4) ------------------------------------------------
 
+  // Plan mode: Edit / Write / NotebookEdit only inside the plan directory.
+  // The hook never answers allow itself: outside plan mode, for other tools
+  // and for a path inside the plan directory it returns the engine's own
+  // verdict (`next(e)`); otherwise it denies. The event is read, never passed
+  // on or written: the path is read here as a string.
   on('tool.check', async ($, e, next) => {
-    if (!has('modes') || !(e.tool in EDIT_TOOLS)) return next(e)
+    const isEdit = e.tool === 'Edit' || e.tool === 'Write' || e.tool === 'NotebookEdit'
+    if (!isEdit || !has('modes')) return next(e)
     const mode = (await $.state.get(MODE)).value ?? 'build'
     if (mode !== 'plan') return next(e)
+    const raw =
+      e.tool === 'NotebookEdit'
+        ? (e.input as { notebook_path?: unknown } | null)?.notebook_path
+        : (e.input as { file_path?: unknown } | null)?.file_path
     const dir = planDir(ctx.home)
-    if (planAllows(e.tool, e.input, dir)) return next(e)
+    if (typeof raw === 'string' && isInside(raw, dir)) return next(e)
     return { decision: 'deny', reason: planDenied(e.tool, dir) }
-  }).catch(($, e) => (e.tool in EDIT_TOOLS ? { decision: 'deny' as const, reason: 'feathercode: plan check failed' } : { decision: 'ask' as const }))
+  }).catch(($, e, next) =>
+    e.tool === 'Edit' || e.tool === 'Write' || e.tool === 'NotebookEdit'
+      ? { decision: 'deny' as const, reason: 'feathercode: plan mode check failed' }
+      : next(e),
+  )
 
   on('command.run', { command: 'plan' }, async $ => ({ text: await switchMode($, ctx, 'plan') }))
   on('command.run', { command: 'build' }, async $ => ({ text: await switchMode($, ctx, 'build') }))
