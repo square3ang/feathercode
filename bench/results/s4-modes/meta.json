@@ -1,0 +1,8 @@
+{
+ "label": "s4-modes",
+ "features": "prompt,cache,tools,modes,agents",
+ "model": "sonnet",
+ "claude": "2.1.293 (Claude Code)",
+ "isolate": true,
+ "time": "2026-10-08T02:53:40"
+}

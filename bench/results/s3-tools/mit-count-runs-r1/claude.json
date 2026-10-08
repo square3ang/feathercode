@@ -1,0 +1,99 @@
+{
+ "duration_api_ms": 15384,
+ "stop_reason": "end_turn",
+ "session_id": "a825bdb8-517e-40b1-af76-9425aa9990da",
+ "total_cost_usd": 0.046277399999999996,
+ "usage": {
+  "input_tokens": 8,
+  "cache_creation_input_tokens": 6083,
+  "cache_read_input_tokens": 30897,
+  "output_tokens": 1575,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 6083,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 304,
+    "cache_read_input_tokens": 9946,
+    "cache_creation_input_tokens": 925,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 925
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 8,
+   "outputTokens": 1575,
+   "cacheReadInputTokens": 30897,
+   "cacheCreationInputTokens": 6083,
+   "webSearchRequests": 0,
+   "costUSD": 0.046277399999999996,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "safety_stops": 0,
+ "is_error": false,
+ "num_turns": 4,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "I added `count_runs(iterable, key=None)` and its tests, and `python3 -m unittest tests.test_more` passes (701 tests, 1 skipped).\n\n- **Implementation:** `more_itertools/more.py` now has `count_runs`, listed in `__all__`. It is `ilen(groupby(iterable, key))` with a docstring and doctests for the three examples you gave.\n- **Stub:** the type stub is in `more_itertools/more.pyi`, and the name is also added to that file's `__all__`.\n- **Tests:** `tests/test_more.py` has a new `CountRunsTests` class. It covers a basic case, a repeated run (`'aabbaa'`, which gives 3), an empty input, a single element, `key`, and an iterator input.\n\nI didn't add `count_runs` to the docs. A grep of `docs/*.rst` found no existing entry for it, so you may want to add one there.",
+ "ttft_ms": 2383,
+ "type": "result",
+ "duration_ms": 54920,
+ "uuid": "df6c3c7b-4c27-4bdb-be64-c7c4aadb3a1d",
+ "ttft_stream_ms": 1309,
+ "time_to_request_ms": 132,
+ "first_content_frame_ms": 1311,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

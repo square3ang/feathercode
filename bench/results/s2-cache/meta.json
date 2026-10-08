@@ -1,0 +1,8 @@
+{
+ "label": "s2-cache",
+ "features": "prompt,cache",
+ "model": "sonnet",
+ "claude": "2.1.293 (Claude Code)",
+ "isolate": true,
+ "time": "2026-10-08T02:50:51"
+}

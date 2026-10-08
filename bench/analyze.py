@@ -116,6 +116,7 @@ def task_table(label, runs):
         tot["n"] += 1
         tot["sec"] += r.get("seconds") or 0
         tot["cost"] += res.get("total_cost_usd") or 0
+        tot["first"] += s.get("first_prompt", 0)
     prompt = tot["input"] + tot["cacheRead"] + tot["cacheWrite"]
     hit = 100 * tot["cacheRead"] / prompt if prompt else 0
     lines.append(f"| **total** | {int(tot['pass'])}/{int(tot['n'])} | {int(tot['requests'])} | {fmt(tot['input'])} | {fmt(tot['output'])} | {fmt(tot['cacheRead'])} | {fmt(tot['cacheWrite'])} | {hit:.1f} | {int(tot['breaks'])} | | | | | {tot['sec']:.0f} | {tot['cost']:.3f} |")
@@ -171,15 +172,16 @@ def main(paths):
         out += ["## " + str(meta.get("label")), ""] + lines + ["", "#### cache breaks (all tasks)", ""] + cause_table(allrecs) + ["", "#### attachments (all tasks)", ""] + attach_table(allrecs) + [""]
     if len(totals) > 1:
         base = totals[0][1]
-        out += ["## comparison (vs first)", "", "| label | pass | requests | input | output | cache read | cache write | hit % | breaks | Δ cache write | Δ total in+write | sec |", "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        out += ["## comparison (vs first)", "", "weighted = input + 2×cache write (1h TTL) + 0.1×cache read + 5×output: API-price-equivalent input tokens, a proxy for plan usage.", "", "| label | pass | requests | first prompt (avg) | input | output | cache read | cache write | hit % | breaks | weighted | Δ weighted | Δ cache write | Δ cache read | sec |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        wb = base["input"] + 2 * base["cacheWrite"] + 0.1 * base["cacheRead"] + 5 * base["output"]
         for label, t in totals:
             prompt = t["input"] + t["cacheRead"] + t["cacheWrite"]
+            w = t["input"] + 2 * t["cacheWrite"] + 0.1 * t["cacheRead"] + 5 * t["output"]
+            dr = (t["cacheRead"] / base["cacheRead"] - 1) * 100 if base["cacheRead"] else 0
             hit = 100 * t["cacheRead"] / prompt if prompt else 0
             dw = (t["cacheWrite"] / base["cacheWrite"] - 1) * 100 if base["cacheWrite"] else 0
-            cost_like = t["input"] + t["cacheWrite"]
-            base_like = base["input"] + base["cacheWrite"]
-            di = (cost_like / base_like - 1) * 100 if base_like else 0
-            out.append(f"| {label} | {int(t['pass'])}/{int(t['n'])} | {int(t['requests'])} | {fmt(t['input'])} | {fmt(t['output'])} | {fmt(t['cacheRead'])} | {fmt(t['cacheWrite'])} | {hit:.1f} | {int(t['breaks'])} | {dw:+.1f}% | {di:+.1f}% | {t['sec']:.0f} |")
+            fp = t["first"] / t["n"] if t["n"] else 0
+            out.append(f"| {label} | {int(t['pass'])}/{int(t['n'])} | {int(t['requests'])} | {fmt(fp)} | {fmt(t['input'])} | {fmt(t['output'])} | {fmt(t['cacheRead'])} | {fmt(t['cacheWrite'])} | {hit:.1f} | {int(t['breaks'])} | {fmt(w)} | {(w / wb - 1) * 100 if wb else 0:+.1f}% | {dw:+.1f}% | {dr:+.1f}% | {t['sec']:.0f} |")
     print("\n".join(out))
 
 

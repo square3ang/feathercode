@@ -1,0 +1,73 @@
+{
+ "task": "mit-count-runs",
+ "kind": "feature",
+ "rep": 1,
+ "label": "s4-modes",
+ "features": "prompt,cache,tools,modes,agents",
+ "model": "sonnet",
+ "seconds": 78.2,
+ "exit": 0,
+ "result": {
+  "num_turns": 4,
+  "total_cost_usd": 0.042887999999999996,
+  "usage": {
+   "input_tokens": 8,
+   "cache_creation_input_tokens": 5515,
+   "cache_read_input_tokens": 29710,
+   "output_tokens": 1487,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+   },
+   "service_tier": "standard",
+   "cache_creation": {
+    "ephemeral_1h_input_tokens": 5515,
+    "ephemeral_5m_input_tokens": 0
+   },
+   "inference_geo": "not_available",
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 232,
+     "cache_read_input_tokens": 9334,
+     "cache_creation_input_tokens": 969,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 969
+     },
+     "type": "message"
+    }
+   ],
+   "speed": "standard",
+   "fallback_credit": null
+  },
+  "modelUsage": {
+   "claude-sonnet-5-5": {
+    "inputTokens": 8,
+    "outputTokens": 1487,
+    "cacheReadInputTokens": 29710,
+    "cacheCreationInputTokens": 5515,
+    "webSearchRequests": 0,
+    "costUSD": 0.042887999999999996,
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "thinkingTokens": 0,
+    "canonicalModel": "claude-sonnet-5-5",
+    "provider": "firstParty",
+    "costBasis": "list"
+   }
+  },
+  "session_id": "b738843e-943f-45d4-907f-93468f0357a4",
+  "is_error": false,
+  "subtype": "success"
+ },
+ "pass": true,
+ "check_output": "",
+ "diffstat": " more_itertools/more.py  | 20 ++++++++++++++++++++\n more_itertools/more.pyi |  3 +++\n tests/test_more.py      | 17 +++++++++++++++++\n 3 files changed, 40 insertions(+)\n",
+ "logs": [
+  "mit-count-runs-r1/logs/b738843e-943f-45d4-907f-93468f0357a4.jsonl"
+ ]
+}
