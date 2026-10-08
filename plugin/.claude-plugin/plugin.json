@@ -11,7 +11,7 @@
     "features": {
       "type": "string",
       "title": "Features",
-      "description": "Comma list of enabled features: prompt,cache,tools,modes,agents,compact (or all / observe). Instrumentation is always on. Env FEATHERCODE_FEATURES overrides.",
+      "description": "Comma list of enabled features: prompt,cache,tools,modes,agents,compact (or all / observe). Instrumentation is always on.",
       "default": "all"
     },
     "compaction_auto": {
@@ -52,18 +52,11 @@
       ],
       "default": "text"
     },
-    "log_dir": {
-      "type": "string",
-      "title": "Log directory",
-      "description": "Where JSONL usage logs go. Empty: ~/.claude/feathercode/logs. Env FEATHERCODE_LOG_DIR overrides.",
-      "default": ""
-    },
     "panel": {
       "type": "boolean",
       "title": "Usage panel",
       "description": "Open the token/cache panel at session start where a UI exists",
       "default": false
     }
-  },
-  "types": "./types/index.d.ts"
+  }
 }

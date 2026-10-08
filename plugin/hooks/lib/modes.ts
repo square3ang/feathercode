@@ -6,8 +6,12 @@
 
 export type Mode = 'build' | 'plan'
 
-export function planDir(home: string): string {
-  return `${home.replace(/[\\/]$/, '')}/.opencode/plan`
+/**
+ * The plan directory, under the project root (OpenCode v1's `.opencode/plans`
+ * placement; v2 uses `~/.opencode/plan`, which would need the home directory).
+ */
+export function planDir(root: string): string {
+  return `${root.replace(/[\\/]$/, '')}/.opencode/plan`
 }
 
 /** Lexically normalised absolute path (`.`/`..` resolved), or undefined. */

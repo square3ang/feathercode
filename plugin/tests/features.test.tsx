@@ -25,8 +25,8 @@ describe('system prompt', () => {
     expect(sys.text).not.toContain('OpenCode')
   })
 
-  test('observe mode leaves the prompt alone', async ($, on) => {
-    world(on, { FEATHERCODE_FEATURES: 'observe' })
+  test('observe mode leaves the prompt alone', { options: { features: 'observe' } }, async ($, on) => {
+    world(on)
     on('prompt.compose', () => ({ sections: ENGINE_SECTIONS }))
     await $.session.start(START)
     const r = await $.prompt.compose(COMPOSE)
@@ -98,10 +98,10 @@ describe('build / plan', () => {
     expect(out.text).toContain('Plan mode')
     const denied = await $.tool.check({ tool: 'Edit', input: { file_path: '/work/a.py', old_string: 'a', new_string: 'b' } })
     expect(denied.decision).toBe('deny')
-    expect(denied.reason).toContain('/home/u/.opencode/plan')
-    const inPlan = await $.tool.check({ tool: 'Write', input: { file_path: '/home/u/.opencode/plan/p.md', content: '' } })
+    expect(denied.reason).toContain('/work/.opencode/plan')
+    const inPlan = await $.tool.check({ tool: 'Write', input: { file_path: '/work/.opencode/plan/p.md', content: '' } })
     expect(inPlan.decision).toBe('allow')
-    const sneaky = await $.tool.check({ tool: 'Write', input: { file_path: '/home/u/.opencode/plan/../../x', content: '' } })
+    const sneaky = await $.tool.check({ tool: 'Write', input: { file_path: '/work/.opencode/plan/../../x', content: '' } })
     expect(sneaky.decision).toBe('deny')
     const bash = await $.tool.check({ tool: 'Bash', input: { command: 'ls' } })
     expect(bash.decision).toBe('allow')
@@ -124,7 +124,7 @@ describe('build / plan', () => {
     expect((await $.tool.check({ tool: 'Edit', input: { file_path: '/work/a', old_string: 'a', new_string: 'b' } })).decision).toBe('ask')
     await $.command.run(cmd('plan'))
     expect((await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })).decision).toBe('deny')
-    const inPlan = await $.tool.check({ tool: 'Write', input: { file_path: '/home/u/.opencode/plan/p.md', content: '' } })
+    const inPlan = await $.tool.check({ tool: 'Write', input: { file_path: '/work/.opencode/plan/p.md', content: '' } })
     expect(inPlan.decision).toBe('ask')
     const outside = await $.tool.check({ tool: 'NotebookEdit', input: { notebook_path: '/work/n.ipynb', new_source: '' } })
     expect(outside.decision).toBe('deny')
@@ -133,7 +133,7 @@ describe('build / plan', () => {
   })
 
   test('a resumed session gets its mode back', async ($, on) => {
-    world(on, {}, { 'mode:sess-1': 'plan' })
+    world(on, { 'mode:sess-1': 'plan' })
     mock.session(on)
     on('tool.check', () => ({ decision: 'allow' }))
     await $.session.start(START)

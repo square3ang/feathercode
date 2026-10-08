@@ -66,11 +66,20 @@ def child_env(args, log_dir, cfg_dir):
         env = {k: v for k, v in os.environ.items() if not k.startswith(LEAKY_PREFIXES)}
     if os.geteuid() == 0:
         env["IS_SANDBOX"] = "1"  # bypassPermissions is refused for root otherwise
-    env["FEATHERCODE_FEATURES"] = args.features
-    env["FEATHERCODE_LOG_DIR"] = str(log_dir)
-    if args.prune is not None:
-        env["FEATHERCODE_PRUNE"] = args.prune
     return env
+
+
+def settings_for(options):
+    """The mod's userConfig values for a --plugin-dir run, as a --settings JSON."""
+    return json.dumps({"pluginConfigs": {"feathercode@inline": {"options": options}}})
+
+
+def collect_logs(session_id, dest):
+    """The mod writes <plugin>/logs/<session>.jsonl; copy this run's into dest."""
+    if not session_id:
+        return
+    for f in (PLUGIN / "logs").glob(f"{session_id}*.jsonl"):
+        shutil.copy(f, dest / f.name)
 
 
 def prepare(task, work):
@@ -101,7 +110,10 @@ def run_one(task, rep, args, out):
             "--permission-mode", "bypassPermissions",
         ]
         if not args.no_plugin:
-            cmd += ["--plugin-dir", str(PLUGIN)]
+            options = {"features": args.features}
+            if args.prune is not None:
+                options["compaction_prune"] = args.prune == "1"
+            cmd += ["--plugin-dir", str(PLUGIN), "--settings", settings_for(options)]
         t0 = time.time()
         p = subprocess.run(cmd, cwd=work, env=child_env(args, log_dir, cfg_dir), capture_output=True, text=True, timeout=args.timeout)
         rec["seconds"] = round(time.time() - t0, 1)
@@ -113,6 +125,7 @@ def run_one(task, rep, args, out):
             res = {"raw": p.stdout[-4000:]}
         (run_dir / "claude.json").write_text(json.dumps(res, indent=1))
         rec["result"] = {k: res.get(k) for k in ("num_turns", "total_cost_usd", "usage", "modelUsage", "session_id", "is_error", "subtype")}
+        collect_logs(res.get("session_id"), log_dir)
         c = subprocess.run(["bash", str(task["dir"] / "check.sh")], cwd=work, capture_output=True, text=True, timeout=600)
         rec["pass"] = c.returncode == 0
         rec["check_output"] = (c.stdout + c.stderr)[-2000:]

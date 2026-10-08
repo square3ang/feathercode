@@ -1,0 +1,99 @@
+{
+ "duration_api_ms": 9335,
+ "stop_reason": "end_turn",
+ "session_id": "2e406844-ba60-46ae-8b2d-d7193251a6d0",
+ "total_cost_usd": 0.037118,
+ "usage": {
+  "input_tokens": 8,
+  "cache_creation_input_tokens": 5359,
+  "cache_read_input_tokens": 29380,
+  "output_tokens": 979,
+  "output_tokens_details": {
+   "thinking_tokens": 66
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 5359,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 320,
+    "cache_read_input_tokens": 9822,
+    "cache_creation_input_tokens": 325,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 325
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 8,
+   "outputTokens": 979,
+   "cacheReadInputTokens": 29380,
+   "cacheCreationInputTokens": 5359,
+   "webSearchRequests": 0,
+   "costUSD": 0.037118,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 66,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "safety_stops": 0,
+ "is_error": false,
+ "num_turns": 5,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "I wrote `ANSWER.txt` in the repository root. The function is `parse_basic_str_escape` in `src/tomli/_parser.py`.\n\n- **Callers:** `parse_basic_str` calls it for both string kinds. Multi-line strings go through the thin wrapper `parse_basic_str_escape_multiline`, which passes `multiline=True`. That flag enables the line-ending backslash that skips whitespace.\n- **`\\uXXXX` handling:** On `\\u`, it calls `parse_hex_char` to read exactly 4 hex digits. It raises `TOMLDecodeError` for invalid hex or for values that aren't Unicode scalar values, such as surrogates. Otherwise it returns `chr()` of the code point.\n\nI didn't open `parse_one_line_basic_str` (line 516). I'm assuming it hands off to `parse_basic_str`, so I haven't confirmed that single-line strings reach the escape function that way.",
+ "ttft_ms": 1861,
+ "type": "result",
+ "duration_ms": 9593,
+ "uuid": "54b92bfa-5b59-456c-ae18-7c84a2839c7f",
+ "ttft_stream_ms": 1105,
+ "time_to_request_ms": 107,
+ "first_content_frame_ms": 1107,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

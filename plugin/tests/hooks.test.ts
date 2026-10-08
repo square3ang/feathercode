@@ -2,13 +2,13 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 /** The world beneath the plugin: env, session facts, an in-memory fs. */
-export function world(on: On, env: Record<string, string> = {}, store: Record<string, unknown> = {}) {
+export function world(on: On, store: Record<string, unknown> = {}) {
   const files = new Map<string, string>()
-  mock.env(on, { HOME: '/home/u', FEATHERCODE_LOG_DIR: '/logs', ...env })
   mock.store(on, store)
   on('session.id', () => ({ value: 'sess-1' }))
   on('session.model', () => ({ value: 'claude-sonnet-5-5' }))
   on('session.cwd', () => ({ value: '/work' }))
+  on('session.root', () => ({ value: '/work' }))
   on('session.surfaces', () => ({ value: [] }))
   on('session.version', () => ({ value: { version: '2.1.293', base: '2.1.293', builtAt: '' } }))
   on('fs.exists', ($, e) => ({ value: files.has(e.path) }))
@@ -26,8 +26,8 @@ export const START = { cwd: '/work', surface: null, isInteractive: false } as ne
 export const cmd = (command: string, args = '') =>
   ({ command, args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } }) as never
 
-test('logs each request and reports it in /feathercode-stats', async ($, on) => {
-  const files = world(on, { FEATHERCODE_FEATURES: 'observe' })
+test('logs each request and reports it in /feathercode-stats', { options: { features: 'observe' } }, async ($, on) => {
+  const files = world(on)
   on('turn.step', async function* () {
     return {
       turnId: 't',
@@ -49,6 +49,8 @@ test('logs each request and reports it in /feathercode-stats', async ($, on) => 
   expect(out.text).toContain('requests 1')
   expect(out.text).toContain('cache read 100')
   expect(out.text).toContain('observe only')
-  const log = files.get('/logs/sess-1.jsonl') ?? ''
+  const path = [...files.keys()].find(k => k.endsWith('/logs/sess-1.jsonl'))
+  expect(path).toBeDefined()
+  const log = files.get(path!) ?? ''
   expect(log).toContain('"ev":"start"')
 })
