@@ -34,7 +34,7 @@ Answer `y` to add the marketplace, then pick a scope.
 | Reminders | todo and token-count reminders | dropped (OpenCode v2 has neither) |
 | Tools | ~15 schemas listed incl. Workflow, ScheduleWakeup, ListAgents, ReportFindings | OpenCode's set listed (Bash, Read, Edit, Write, Glob/Grep, Agent, Skill, AskUserQuestion, ToolSearch) with OpenCode descriptions; the rest behind ToolSearch, still callable |
 | Agents | Explore, general-purpose, Plan, ... | `feathercode:explore`, `feathercode:general` (OpenCode prompts); the overlapping built-ins hidden |
-| Modes | Claude Code plan mode | `/plan` and `/build` (OpenCode v2): plan denies Edit/Write/NotebookEdit outside `~/.opencode/plan`, one reminder per switch appended at the end |
+| Modes | Claude Code plan mode | `/plan` and `/build` (OpenCode v2): plan denies Edit/Write/NotebookEdit outside `<project>/.opencode/plan`, one reminder per switch appended at the end |
 | Compaction | Claude Code's summary | OpenCode v2: same-prefix summary (`$.model.fork`, cache-warm), its template, newest 15k tokens kept in a `<conversation-checkpoint>` |
 | Prune | — | OpenCode v1 prune as an option (off) |
 
@@ -61,12 +61,12 @@ prune, which OpenCode does as well).
 | `compaction_buffer` | `0` | OpenCode v2 `compaction.buffer`; 0 = `max(10%, 16k)` |
 | `compaction_tail` | `text` | `text` (v2: recent part flattened into the checkpoint) or `messages` (kept verbatim) |
 | `compaction_prune` | `false` | OpenCode v1 prune (v2 removed it) |
-| `log_dir` | `~/.claude/feathercode/logs` | JSONL logs, one file per session |
 | `panel` | `false` | open the stats pane at start |
 
-Environment overrides (used by the bench): `FEATHERCODE_FEATURES`,
-`FEATHERCODE_LOG_DIR`, `FEATHERCODE_PRUNE`, `FEATHERCODE_KEEP_TOKENS`,
-`FEATHERCODE_DUMP` (writes the full prompt parts to a file).
+Logs: `<plugin folder>/logs/<session id>.jsonl`. The bench passes options with
+`claude --settings '{"pluginConfigs":{"feathercode@inline":{"options":{...}}}}'`.
+What each hook decides, the one file written and the one command run are
+listed in `plugin/README.md`.
 
 ## Measuring
 
@@ -74,7 +74,7 @@ Environment overrides (used by the bench): `FEATHERCODE_FEATURES`,
 python3 bench/run.py --label baseline --features observe
 python3 bench/run.py --label all --features all
 python3 bench/analyze.py bench/results/baseline bench/results/all
-python3 bench/analyze.py ~/.claude/feathercode/logs/<session>.jsonl
+python3 bench/analyze.py plugin/logs/<session>.jsonl
 python3 bench/live.py plan compact prune
 ```
 

@@ -4,10 +4,8 @@
 //
 // Every hook and every `$` call lives in this file (the engine follows `$`
 // only into functions declared here); ./lib holds the pure logic.
-import { read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionCompactInput, SessionCompactResult, SessionMessage } from 'claude-code'
 
-import type { FeathercodeMode } from '../types'
 import {
   NUDGE,
   applyPrune,
@@ -22,9 +20,9 @@ import {
   splitConversation,
   type Msg,
 } from './lib/compaction'
-import { parseFeatures, resolveConfig, type Config, type Feature } from './lib/config'
+import { resolveConfig, type Config, type Feature } from './lib/config'
 import { attachLog, createLog, takeFlush, writeLog, type JsonlLog } from './lib/log'
-import { planAllows, planDir, EDIT_TOOLS } from './lib/modes'
+import { isInside, planDir, type Mode } from './lib/modes'
 import {
   DROPPED_ATTACHMENTS,
   EXPLORE_DESCRIPTION,
@@ -42,8 +40,6 @@ import {
 import { Stats, formatStats } from './lib/stats'
 import { deferralFor } from './lib/tools'
 
-const MODE = { plugin: 'feathercode', key: 'mode' } as const
-const STATS_VERSION = { plugin: 'feathercode', key: 'statsVersion' } as const
 const PANE = 'feathercode-stats'
 /** /compact instructions that ask for a prune (headless sessions queue one). */
 const PRUNE_MARK = '__feathercode_prune__'
@@ -57,10 +53,10 @@ type Ctx = {
   cfg: Config
   log: JsonlLog
   stats: Stats
-  dump: Record<string, unknown>
-  dumpPath?: string
-  home: string
+  /** The session's project root; the plan directory lives under it. */
+  root: string
   sessionId: string
+  mode: Mode
   policy?: string
   commands: { plan: string; build: string }
   agentsReady: boolean
@@ -73,25 +69,24 @@ type Ctx = {
 export const register: Register = (on, options) => {
   const o = options as Record<string, unknown>
   const ctx: Ctx = {
-    cfg: resolveConfig(o, { home: '~' }),
+    cfg: resolveConfig(o),
     log: createLog(),
     stats: new Stats(),
-    dump: {},
-    home: '~',
+    root: '.',
     sessionId: '',
+    mode: 'build',
     commands: { plan: 'plan', build: 'build' },
     agentsReady: false,
     pendingPrune: false,
     compacting: false,
     lastMainTokens: 0,
   }
-  ctx.cfg.features = parseFeatures(typeof o.features === 'string' ? o.features : 'all')
   const has = (f: Feature) => ctx.cfg.features.has(f)
 
   // ---- session ---------------------------------------------------------------
 
   on('session.start', async ($, e, next) => {
-    await loadCtx($, ctx, o)
+    await loadCtx($, ctx)
     await $.command.register({ name: 'feathercode-stats', description: 'Token and prompt-cache usage of this session' })
     await $.command.register({ name: 'feathercode-panel', description: 'Show token and prompt-cache usage in a pane' })
     if (has('modes')) {
@@ -136,7 +131,6 @@ export const register: Register = (on, options) => {
     }
     const rec = ctx.stats.compose(out.sections)
     if (rec) writeLog(ctx.log, { t: Date.now(), ev: 'compose', model: e.model, traits: e.traits, tools: e.tools.length, engine: r.sections.map(s => ({ id: s.id, chars: s.text.length })), ...rec })
-    await dump($, ctx, 'compose', { input: e, sections: out.sections })
     return out
   })
 
@@ -144,7 +138,6 @@ export const register: Register = (on, options) => {
     const r = await next(e)
     const out = has('prompt') ? { ...r, blocks: r.blocks.filter(b => b.name !== 'userEmail') } : r
     writeLog(ctx.log, { t: Date.now(), ev: 'context', blocks: out.blocks.map(b => ({ name: b.name, chars: b.text.length })) })
-    await dump($, ctx, 'context', { input: e, out })
     return out
   })
 
@@ -161,7 +154,6 @@ export const register: Register = (on, options) => {
     const chars = text === null ? null : text.length
     ctx.stats.attachment(e.type, e.agentId, chars)
     writeLog(ctx.log, { t: Date.now(), ev: 'attach', type: e.type, loop: e.agentId ?? 'main', origin: e.origin.kind, inChars: e.text.length, chars })
-    await dump($, ctx, 'attachments', { in: e, out: text }, true)
     return { text }
   })
 
@@ -188,7 +180,6 @@ export const register: Register = (on, options) => {
         deferred,
       })
     }
-    await dump($, ctx, 'tools', { tool: e.tool, inDeferred: e.isDeferred, in: e.description, out }, true)
     return out
   })
 
@@ -200,14 +191,27 @@ export const register: Register = (on, options) => {
 
   // ---- build / plan (phase 4) ------------------------------------------------
 
+  // Plan mode: Edit / Write / NotebookEdit only inside the plan directory.
+  // The hook never answers allow itself: outside plan mode, for other tools
+  // and for a path inside the plan directory it returns the engine's own
+  // verdict (`next(e)`); otherwise it denies. The event is read, never passed
+  // on or written: the path is read here as a string.
   on('tool.check', async ($, e, next) => {
-    if (!has('modes') || !(e.tool in EDIT_TOOLS)) return next(e)
-    const mode = (await $.state.get(MODE)).value ?? 'build'
-    if (mode !== 'plan') return next(e)
-    const dir = planDir(ctx.home)
-    if (planAllows(e.tool, e.input, dir)) return next(e)
+    const isEdit = e.tool === 'Edit' || e.tool === 'Write' || e.tool === 'NotebookEdit'
+    if (!isEdit || !has('modes')) return next(e)
+    if (ctx.mode !== 'plan') return next(e)
+    const raw =
+      e.tool === 'NotebookEdit'
+        ? (e.input as { notebook_path?: unknown } | null)?.notebook_path
+        : (e.input as { file_path?: unknown } | null)?.file_path
+    const dir = planDir(ctx.root)
+    if (typeof raw === 'string' && isInside(raw, dir)) return next(e)
     return { decision: 'deny', reason: planDenied(e.tool, dir) }
-  }).catch(($, e) => (e.tool in EDIT_TOOLS ? { decision: 'deny' as const, reason: 'feathercode: plan check failed' } : { decision: 'ask' as const }))
+  }).catch(($, e, next) =>
+    e.tool === 'Edit' || e.tool === 'Write' || e.tool === 'NotebookEdit'
+      ? { decision: 'deny' as const, reason: 'feathercode: plan mode check failed' }
+      : next(e),
+  )
 
   on('command.run', { command: 'plan' }, async $ => ({ text: await switchMode($, ctx, 'plan') }))
   on('command.run', { command: 'build' }, async $ => ({ text: await switchMode($, ctx, 'build') }))
@@ -216,15 +220,14 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!has('modes') || e.props.hasSurvey) return next(e)
-    const mode = (await read($, { plugin: 'feathercode', key: 'mode' } as const)) ?? 'build'
-    if (mode !== 'plan') return next(e)
+    if (ctx.mode !== 'plan') return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     return (
       <Box>
         <Text color="yellow" bold>
           plan
         </Text>
-        <Text dimColor> read-only: edits only in {planDir(ctx.home)} </Text>
+        <Text dimColor> read-only: edits only in {planDir(ctx.root)} </Text>
         <Button key="build" label="Switch to build" onPress={() => switchMode($, ctx, 'build')} />
       </Box>
     )
@@ -277,25 +280,24 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     writeLog(ctx.log, { t: Date.now(), ev: 'turn', loop: e.agentId ?? 'main', turnId: e.turnId, ms: e.durationMs, reason: e.reason })
     if (e.agentId === undefined && ctx.cfg.compactionPrune && has('compact')) ctx.pendingPrune = true
-    await bumpStats($)
+    $.ui.invalidate('ui.render')
     await flush($, ctx)
     return next(e)
   })
 
   // ---- stats -----------------------------------------------------------------
 
-  on('command.run', { command: 'feathercode-stats' }, async $ => ({ text: await statsText($, ctx) }))
+  on('command.run', { command: 'feathercode-stats' }, async () => ({ text: statsText(ctx) }))
 
   on('command.run', { command: 'feathercode-panel' }, async $ => {
-    if ((await $.session.surfaces()).length === 0) return { text: await statsText($, ctx) }
+    if ((await $.session.surfaces()).length === 0) return { text: statsText(ctx) }
     await $.ui.open({ id: PANE, title: 'feathercode' })
     return { text: 'feathercode panel opened.' }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    await read($, { plugin: 'feathercode', key: 'statsVersion' } as const)
     const { Box, Text } = $.ui.resolve(e)
-    const lines = (await statsText($, ctx)).split('\n')
+    const lines = statsText(ctx).split('\n')
     return (
       <Box flexDirection="column">
         {lines.map(line => (
@@ -308,35 +310,22 @@ export const register: Register = (on, options) => {
 
 // ---- helpers (all `$` use stays in this file) ---------------------------------
 
-async function loadCtx($: EngineInterface, ctx: Ctx, options: Record<string, unknown>): Promise<void> {
-  ctx.home = (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? '.'
-  ctx.cfg = resolveConfig(options, {
-    features: await $.env.get('FEATHERCODE_FEATURES'),
-    logDir: await $.env.get('FEATHERCODE_LOG_DIR'),
-    prune: await $.env.get('FEATHERCODE_PRUNE'),
-    keep: await $.env.get('FEATHERCODE_KEEP_TOKENS'),
-    buffer: await $.env.get('FEATHERCODE_COMPACT_BUFFER'),
-    home: ctx.home,
-  })
-  ctx.dumpPath = await $.env.get('FEATHERCODE_DUMP')
-  const id = await $.session.id()
-  ctx.sessionId = id
+async function loadCtx($: EngineInterface, ctx: Ctx): Promise<void> {
+  ctx.root = await $.session.root()
+  ctx.sessionId = await $.session.id()
   let existing: string | undefined
-  const path = `${ctx.cfg.logDir.replace(/[\\/]$/, '')}/${id}.jsonl`
   try {
-    if (await $.fs.exists(path)) {
-      const text = await $.fs.read(path)
-      if (typeof text === 'string') existing = text
-    }
+    const text = await $.fs.read(`${$.plugin.root}/logs/${ctx.sessionId}.jsonl`)
+    if (typeof text === 'string') existing = text
   } catch {
     existing = undefined
   }
-  attachLog(ctx.log, ctx.cfg.logDir, id, existing)
+  attachLog(ctx.log, ctx.sessionId, existing)
   const v = await $.session.version()
   writeLog(ctx.log, {
     t: Date.now(),
     ev: 'start',
-    session: id,
+    session: ctx.sessionId,
     version: v.version,
     model: await $.session.model(),
     surfaces: await $.session.surfaces(),
@@ -346,30 +335,21 @@ async function loadCtx($: EngineInterface, ctx: Ctx, options: Record<string, unk
   await flush($, ctx)
 }
 
+/**
+ * The one file the mod writes: its JSONL log, `<plugin>/logs/<session>.jsonl`
+ * (`<session>.<n>.jsonl` past 3.5 MB).
+ */
 async function flush($: EngineInterface, ctx: Ctx): Promise<void> {
   const w = takeFlush(ctx.log)
   if (!w) return ctx.log.writing
-  ctx.log.writing = ctx.log.writing.then(() => $.fs.write(w.path, w.text)).catch(() => undefined)
+  ctx.log.writing = ctx.log.writing.then(() => $.fs.write(`${$.plugin.root}/logs/${w.file}`, w.text)).catch(() => undefined)
   return ctx.log.writing
 }
 
-/** FEATHERCODE_DUMP=<file>: the full prompt parts as computed (discovery). */
-async function dump($: EngineInterface, ctx: Ctx, key: string, value: unknown, push = false): Promise<void> {
-  if (!ctx.dumpPath) return
-  if (push) ((ctx.dump[key] ??= []) as unknown[]).push(value)
-  else ctx.dump[key] = value
-  await $.fs.write(ctx.dumpPath, JSON.stringify(ctx.dump, null, 1))
-}
-
-async function statsText($: EngineInterface, ctx: Ctx): Promise<string> {
-  const mode = (await $.state.get(MODE)).value ?? 'build'
-  return formatStats(ctx.stats, ctx.log.path, [
-    `features: ${[...ctx.cfg.features].join(',') || 'observe only'} | mode: ${mode}`,
+function statsText(ctx: Ctx): string {
+  return formatStats(ctx.stats, ctx.log.file ? `<plugin>/logs/${ctx.log.file}` : undefined, [
+    `features: ${[...ctx.cfg.features].join(',') || 'observe only'} | mode: ${ctx.mode}`,
   ])
-}
-
-async function bumpStats($: EngineInterface): Promise<void> {
-  await update($, STATS_VERSION, n => (n ?? 0) + 1)
 }
 
 /** `/plan` and `/build`; a built-in of that name keeps it, so fall back to fc-*. */
@@ -389,12 +369,12 @@ async function registerModeCommands($: EngineInterface, ctx: Ctx): Promise<void>
 }
 
 /** Switches agent: records the mode and appends v2's one-shot reminder. */
-async function switchMode($: EngineInterface, ctx: Ctx, mode: FeathercodeMode): Promise<string> {
-  const current = (await $.state.get(MODE)).value ?? 'build'
-  if (current === mode) return `Already in ${mode} mode.`
-  await $.state.set(MODE, mode)
+async function switchMode($: EngineInterface, ctx: Ctx, mode: Mode): Promise<string> {
+  if (ctx.mode === mode) return `Already in ${mode} mode.`
+  ctx.mode = mode
   await $.store.set(`mode:${ctx.sessionId}`, mode)
-  const dir = planDir(ctx.home)
+  $.ui.invalidate('ui.render')
+  const dir = planDir(ctx.root)
   const reminder = mode === 'plan' ? planEnter(dir) : PLAN_LEAVE
   try {
     await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: reminder }] } })
@@ -411,7 +391,7 @@ async function switchMode($: EngineInterface, ctx: Ctx, mode: FeathercodeMode): 
 /** A resumed session (`--continue`, `--resume`) gets its mode back. */
 async function restoreMode($: EngineInterface, ctx: Ctx): Promise<void> {
   const saved = await $.store.get(`mode:${ctx.sessionId}`)
-  if (saved === 'plan' || saved === 'build') await $.state.set(MODE, saved)
+  if (saved === 'plan' || saved === 'build') ctx.mode = saved
 }
 
 async function registerAgents($: EngineInterface, ctx: Ctx): Promise<void> {
@@ -523,8 +503,7 @@ async function compact(
     summary = c.text
   }
 
-  const mode = (await $.state.get(MODE)).value ?? 'build'
-  const reminder = mode === 'plan' && ctx.cfg.features.has('modes') ? `\n\n${planEnter(planDir(ctx.home))}` : ''
+  const reminder = ctx.mode === 'plan' && ctx.cfg.features.has('modes') ? `\n\n${planEnter(planDir(ctx.root))}` : ''
   const tokensBefore = messages.reduce((n, m) => n + messageTokens(m), 0)
   let out: Msg[]
   if (ctx.cfg.compactionTail === 'messages') {

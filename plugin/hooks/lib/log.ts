@@ -1,5 +1,5 @@
 /**
- * JSONL logger. $.fs has no append, so the session's lines are held in memory
+ * JSONL logger, one file per session under `<plugin>/logs/`. $.fs has no append, so the session's lines are held in memory
  * and the whole file is rewritten on each flush (writes are chained). One file
  * per session id; a reload re-reads what is already there. Past MAX_BYTES the
  * log rolls to `<id>.<n>.jsonl`.
@@ -8,7 +8,8 @@ const MAX_BYTES = 3_500_000
 
 export type JsonlLog = {
   lines: string[]
-  path?: string
+  /** The file name under `<plugin>/logs/`. */
+  file?: string
   base: string
   writing: Promise<void>
   dirty: boolean
@@ -28,24 +29,24 @@ export function writeLog(log: JsonlLog, record: Record<string, unknown>): void {
 }
 
 /** The path of the next write and its text; rolls the log past MAX_BYTES. */
-export function takeFlush(log: JsonlLog): { path: string; text: string } | undefined {
-  if (!log.path || !log.dirty) return undefined
+export function takeFlush(log: JsonlLog): { file: string; text: string } | undefined {
+  if (!log.file || !log.dirty) return undefined
   log.dirty = false
-  const path = log.path
+  const file = log.file
   const text = log.lines.join('\n') + '\n'
   if (log.bytes > MAX_BYTES) {
     log.part += 1
-    log.path = `${log.base}.${log.part}.jsonl`
+    log.file = `${log.base}.${log.part}.jsonl`
     log.lines = []
     log.bytes = 0
   }
-  return { path, text }
+  return { file, text }
 }
 
 /** Sets the file for a session and merges lines already written there. */
-export function attachLog(log: JsonlLog, dir: string, sessionId: string, existing: string | undefined): void {
-  log.base = `${dir.replace(/[\\/]$/, '')}/${sessionId}`
-  log.path = `${log.base}.jsonl`
+export function attachLog(log: JsonlLog, sessionId: string, existing: string | undefined): void {
+  log.base = sessionId.replace(/[^A-Za-z0-9._-]/g, '_')
+  log.file = `${log.base}.jsonl`
   if (existing && existing.length > 0) {
     log.lines = existing
       .split('\n')

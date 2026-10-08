@@ -20,12 +20,12 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from run import KEEP_ENV, LEAKY_PREFIXES, PLUGIN, ROOT  # noqa: E402
+from run import KEEP_ENV, LEAKY_PREFIXES, PLUGIN, ROOT, settings_for  # noqa: E402
 
 OUT = ROOT / "bench" / "results" / "live"
 
 
-def env_for(log_dir, extra):
+def env_for(extra):
     isolate = bool(os.environ.get("CLAUDE_CODE_REMOTE"))
     if isolate:
         env = {k: os.environ[k] for k in KEEP_ENV if k in os.environ}
@@ -36,20 +36,20 @@ def env_for(log_dir, extra):
         env = {k: v for k, v in os.environ.items() if not k.startswith(LEAKY_PREFIXES)}
     if os.geteuid() == 0:
         env["IS_SANDBOX"] = "1"
-    env["FEATHERCODE_FEATURES"] = "all"
-    env["FEATHERCODE_LOG_DIR"] = str(log_dir)
     env.update(extra)
     return env
 
 
 class Session:
-    def __init__(self, name, extra=None, model=None):
+    def __init__(self, name, options=None, extra=None, model=None):
         self.dir = Path(tempfile.mkdtemp(prefix=f"fc-live-{name}-"))
         self.log_dir = OUT / name
         if self.log_dir.exists():
             shutil.rmtree(self.log_dir)
         self.log_dir.mkdir(parents=True)
-        self.env = env_for(self.log_dir, extra or {})
+        self.env = env_for(extra or {})
+        self.options = {"features": "all", **(options or {})}
+        self.session_id = None
         self.model = model or os.environ.get("BENCH_MODEL", "sonnet")
         self.started = False
         self.results = []
@@ -57,7 +57,8 @@ class Session:
 
     def say(self, prompt, timeout=600):
         cmd = [os.environ.get("CLAUDE_BIN", "claude"), "-p", prompt, "--model", self.model, "--output-format", "json",
-               "--permission-mode", "bypassPermissions", "--plugin-dir", str(PLUGIN)]
+               "--permission-mode", "bypassPermissions", "--plugin-dir", str(PLUGIN),
+               "--settings", settings_for(self.options)]
         if self.started:
             cmd.insert(1, "--continue")
         p = subprocess.run(cmd, cwd=self.dir, env=self.env, capture_output=True, text=True, timeout=timeout)
@@ -67,12 +68,15 @@ class Session:
         except json.JSONDecodeError:
             res = {"result": p.stdout[-2000:], "stderr": p.stderr[-2000:]}
         text = res.get("result") or ""
+        self.session_id = self.session_id or res.get("session_id")
         u = res.get("usage") or {}
         print(f"\n> {prompt[:100]}\n< {text[:300]!r}\n  usage in={u.get('input_tokens')} read={u.get('cache_read_input_tokens')} write={u.get('cache_creation_input_tokens')} out={u.get('output_tokens')}")
         return text
 
     def log(self):
         recs = []
+        for f in sorted((PLUGIN / "logs").glob(f"{self.session_id}*.jsonl")) if self.session_id else []:
+            shutil.copy(f, self.log_dir / f.name)
         for f in sorted(self.log_dir.glob("*.jsonl")):
             recs += [json.loads(line) for line in f.read_text().splitlines() if line.strip()]
         return recs
@@ -94,7 +98,7 @@ def plan():
     s.say("Change a.py so it prints 'bye' instead of 'hi'.")
     s.check("plan blocks the edit", (s.dir / "a.py").read_text() == "print('hi')\n")
     s.say("Write your plan for that change into a markdown file in the plan directory you were given.")
-    plans = list(Path(os.path.expanduser("~/.opencode/plan")).glob("*.md"))
+    plans = list((s.dir / ".opencode" / "plan").glob("*.md"))
     s.check("plan dir writable", len(plans) > 0, str(plans[:3]))
     s.say("/build")
     s.say("Now make the change to a.py.")
@@ -115,7 +119,7 @@ def build_long(s, rounds):
 
 
 def compact():
-    s = Session("compact", {"FEATHERCODE_KEEP_TOKENS": "3000"})
+    s = Session("compact", {"keep_tokens": 3000})
     build_long(s, 4)
     s.say("/compact")
     recs = s.log()
@@ -136,7 +140,7 @@ def compact():
 
 
 def prune():
-    s = Session("prune", {"FEATHERCODE_PRUNE": "1"})
+    s = Session("prune", {"compaction_prune": True})
     words = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore " * 2
     for f in range(10):
         (s.dir / f"part{f}.txt").write_text("\n".join(f"part {f} row {i} {words}" for i in range(150)))
@@ -154,7 +158,7 @@ def prune():
 
 def auto():
     """feathercode's own trigger (ceiling lowered to ~20k) compacts between turns, via fork."""
-    s = Session("auto", {"FEATHERCODE_COMPACT_BUFFER": "990800", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    s = Session("auto", {"compaction_buffer": 990800, "keep_tokens": 3000})
     build_long(s, 6)
     recs = s.log()
     req = [r for r in recs if r.get("ev") == "compact-request"]
@@ -174,7 +178,7 @@ def auto():
 
 def engine_auto():
     """The engine's own auto threshold (lowered) goes through feathercode's compaction."""
-    s = Session("engine-auto", {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "1", "FEATHERCODE_KEEP_TOKENS": "3000"})
+    s = Session("engine-auto", {"keep_tokens": 3000}, {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "1"})
     build_long(s, 8)
     recs = s.log()
     comp = [r for r in recs if r.get("ev") == "compact" and r.get("trigger") == "auto"]

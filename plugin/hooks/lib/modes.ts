@@ -1,19 +1,17 @@
 // Build / plan agents, as OpenCode v2 defines them (plugin/plan.ts):
 // plan denies the edit permission (edit, write, patch) except in the plan
-// directory; the shell and subagents are not restricted.
+// directory (Claude Code's Edit, Write, NotebookEdit); the shell and
+// subagents are not restricted.
 // Copyright (c) 2025 opencode, MIT License (see ../../NOTICE.md).
 
 export type Mode = 'build' | 'plan'
 
-/** Claude Code's edit-permission tools and the input field naming the file. */
-export const EDIT_TOOLS: Readonly<Record<string, string>> = {
-  Edit: 'file_path',
-  Write: 'file_path',
-  NotebookEdit: 'notebook_path',
-}
-
-export function planDir(home: string): string {
-  return `${home.replace(/[\\/]$/, '')}/.opencode/plan`
+/**
+ * The plan directory, under the project root (OpenCode v1's `.opencode/plans`
+ * placement; v2 uses `~/.opencode/plan`, which would need the home directory).
+ */
+export function planDir(root: string): string {
+  return `${root.replace(/[\\/]$/, '')}/.opencode/plan`
 }
 
 /** Lexically normalised absolute path (`.`/`..` resolved), or undefined. */
@@ -29,13 +27,9 @@ export function normalize(path: string): string | undefined {
   return path.startsWith('/') ? '/' + parts.join('/') : parts.join(sep)
 }
 
-/** Whether `tool` with `input` may run in plan mode. */
-export function planAllows(tool: string, input: unknown, dir: string): boolean {
-  const field = EDIT_TOOLS[tool]
-  if (!field) return true
-  const raw = (input as Record<string, unknown> | null)?.[field]
-  if (typeof raw !== 'string') return false
-  const target = normalize(raw)
+/** Whether `path` lies inside `dir` (both lexically normalised, absolute). */
+export function isInside(path: string, dir: string): boolean {
+  const target = normalize(path)
   const root = normalize(dir)
   return target !== undefined && root !== undefined && target.startsWith(root + '/')
 }

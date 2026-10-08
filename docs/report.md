@@ -61,7 +61,7 @@ Remaining break causes the mod can't remove (by design or by API):
 
 | scenario | result |
 |---|---|
-| `plan` | ✅ `/plan` → the edit request is declined, the file untouched; plan file written to `~/.opencode/plan/`; `/build` → the edit is made; mode restored in each new `--continue` process |
+| `plan` | ✅ `/plan` → the edit request is declined, the file untouched; plan file written to `<project>/.opencode/plan/`; `/build` → the edit is made; mode restored in each new `--continue` process |
 | `compact` (manual `/compact` as the first thing a process does) | ✅ checkpoint (20 messages → 1), the codename from the first turn recalled afterwards. The summary used the `$.model.complete` fallback: a fresh process has no request to fork yet (`nothing-to-fork`) |
 | `engine-auto` (Claude Code's own threshold lowered with `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=1`) | ✅ the engine's `auto` trigger reaches feathercode's hook; summary via `$.model.fork`, which **read 9,522 tokens from cache** (input 937); context kept |
 | `auto` (feathercode's own v2 ceiling, lowered to 9.2k) | ✅ ceiling reached → in `-p` `$.session.compact()` is refused (headless), so a `/compact` is queued; summary via fork (9,205 cached); context kept |
@@ -99,7 +99,7 @@ Notes:
 | Tools | edit, glob, grep, question, read, shell, skill, subagent, webfetch, websearch, write, execute | Claude Code's equivalents listed with v2 wording; the rest deferred | can't remove or replace built-in schemas, only defer and re-describe |
 | `execute` (Code Mode) | MCP/opencode tools via JS | not ported | ToolSearch covers deferred tools |
 | Todo | none | TodoWrite/Task* deferred, todo reminder dropped | |
-| Plan restriction | edit permission denied except `~/.opencode/plan` | same, via `tool.check` on Edit/Write/NotebookEdit, all loops (subagents too) | stricter: v2 relies on the reminder for subagents |
+| Plan restriction | edit permission denied except `<project>/.opencode/plan` | same, via `tool.check` on Edit/Write/NotebookEdit, all loops (subagents too) | stricter: v2 relies on the reminder for subagents |
 | Agent switch | agent selector | `/plan`, `/build` (+ band button where a UI exists) | |
 | Max steps | trailing assistant message, `toolChoice:"none"` | not ported | `turn.step` can't add messages or set tool choice; v2 has no default `steps` |
 | Compaction trigger | before every step: estimate ≥ window − max(10%, 16k) | between turns (`session.measure`) with the same formula, on the larger of the measured context and the last request's size; mid-turn, the engine's own auto threshold calls the same compaction | no pre-step hook can compact |
@@ -126,3 +126,20 @@ Notes:
 - As root, `bypassPermissions` needs `IS_SANDBOX=1`.
 - The container is still detected as remote (`remote_session_change` attachment), so cloud and local numbers differ; see `docs/local-checklist.md`.
 - Claude Code's Read rejects files over 25k tokens even with offset/limit (seen without the mod too).
+
+## 7. Directory review changes
+
+- The mod reads **no environment variables** (options come only from
+  `userConfig`; the bench passes them with `--settings`), so nothing a
+  credential could be in reaches the model or a file.
+- It writes **one file**, its log, at the fixed `<plugin>/logs/<session>.jsonl`;
+  the `FEATHERCODE_DUMP` debug writer and the `log_dir` option are gone.
+- `tool.check` reads the path itself and never passes the event on; it only
+  returns Claude Code's verdict or a deny, and its `.catch` keeps Claude
+  Code's verdict for non-edit tools.
+- No `$.state` contract (`types` is not a manifest field the directory
+  accepts): the mode and stats live in the module, redrawn with
+  `$.ui.invalidate`, the mode persisted in `$.store`.
+- `plugin/README.md` lists what each deciding hook decides and when, the file
+  written and the command run (`/compact`, headless only).
+- Icon: `plugin/.claude-plugin/icon.png`, 1024×1024.

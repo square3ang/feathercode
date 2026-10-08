@@ -1,0 +1,8 @@
+{
+ "label": "smoke-after-review",
+ "features": "all",
+ "model": "sonnet",
+ "claude": "2.1.293 (Claude Code)",
+ "isolate": true,
+ "time": "2026-10-08T03:24:30"
+}

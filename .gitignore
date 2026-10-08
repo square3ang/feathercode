@@ -3,3 +3,4 @@ node_modules/
 plugin/.claude-plugin/types/
 *.tmp
 __pycache__/
+plugin/logs/
