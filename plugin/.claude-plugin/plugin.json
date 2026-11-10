@@ -1,6 +1,6 @@
 {
   "name": "feathercode",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenCode-style lean harness: small system prompt, cache-stable context, OpenCode compaction, build/plan modes, token instrumentation",
   "author": {
     "name": "square3ang"
