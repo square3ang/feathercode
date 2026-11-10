@@ -38,7 +38,7 @@ import {
   stripGitStatus,
   systemPrompt,
 } from './lib/prompts'
-import { Stats, bar, formatStats, status } from './lib/stats'
+import { Stats, formatStats, status } from './lib/stats'
 import { deferralFor } from './lib/tools'
 
 const PANE = 'feathercode-stats'
@@ -219,56 +219,37 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'fc-plan' }, async $ => ({ text: await switchMode($, ctx, 'plan') }))
   on('command.run', { command: 'fc-build' }, async $ => ({ text: await switchMode($, ctx, 'build') }))
 
-  // The band above the prompt, one design on every surface: a mode chip, the
-  // context bar, cache hit, tokens, and the plan/build switch. The terminal
-  // ignores size/weight/tabular and draws the chip as an inverse cell.
+  // The band above the prompt: one flat row in the style of the rows it sits
+  // beside (dot + mode, figures, dim details, plain buttons at the right).
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const isPlan = has('modes') && ctx.mode === 'plan'
     const { Box, Text, Button } = $.ui.resolve(e)
     const s = status(ctx.stats, ctx.mode, ctx.percent)
-    const level = (n: number, warn: number, bad: number) => (n >= bad ? 'error' : n >= warn ? 'warning' : 'subtle')
+    const toggle = () => switchMode($, ctx, isPlan ? 'build' : 'plan')
+    // bodyColumns counts terminal cells; a graphical surface draws Buttons wider, so it gets no fixed width.
+    const width = e.surface === 'terminal' ? e.props.bodyColumns : undefined
     return (
-      <Box flexDirection="row" flexWrap="wrap" alignItems="center" gap={1} paddingX={1} borderStyle="round" borderColor="promptBorder">
-        <Text backgroundColor={isPlan ? 'planMode' : 'claude'} color="inverseText" size="caption" weight="semibold">
-          {isPlan ? ' PLAN ' : ' BUILD '}
-        </Text>
-        <Text size="caption" weight="medium">
-          feathercode
-        </Text>
-        {s.ctx !== undefined ? (
-          <Text size="caption" mono tabular color={level(s.ctx, 70, 85)}>
-            {bar(s.ctx)} {s.ctx}%
-          </Text>
-        ) : null}
-        {s.requests > 0 ? (
-          <Text size="caption" tabular color={s.cache >= 80 ? 'success' : 'warning'}>
-            cache {s.cache}%
-          </Text>
-        ) : null}
-        {s.requests > 0 ? (
-          <Text size="caption" tabular dimColor>
+      <Box flexDirection="row" alignItems="center" gap={2} width={width}>
+        <Button key="mode" plain onPress={toggle}>
+          <Text color={isPlan ? 'planMode' : 'claude'}>●</Text> {isPlan ? 'plan' : 'build'}
+        </Button>
+        {s.ctx !== undefined && <Text color={s.ctx >= 85 ? 'error' : s.ctx >= 70 ? 'warning' : undefined}>ctx {s.ctx}%</Text>}
+        {s.requests > 0 && <Text color={s.cache < 80 ? 'warning' : undefined}>cache {s.cache}%</Text>}
+        {s.requests > 0 && (
+          <Text dimColor>
             {s.requests} req · in {s.input} · out {s.output}
           </Text>
-        ) : null}
-        {s.breaks > 0 ? (
-          <Text size="caption" color="warning">
-            {s.breaks} cache break{s.breaks === 1 ? '' : 's'}
+        )}
+        {s.breaks > 0 && (
+          <Text color="warning">
+            ⚠ {s.breaks} break{s.breaks === 1 ? '' : 's'}
           </Text>
-        ) : null}
-        {isPlan ? (
-          <Text size="caption" dimColor>
-            edits only in {planDir(ctx.root)}
-          </Text>
-        ) : null}
-        {has('modes') ? (
-          <Button
-            key="mode"
-            label={isPlan ? 'Switch to build' : 'Plan'}
-            variant={isPlan ? 'primary' : 'secondary'}
-            onPress={() => switchMode($, ctx, isPlan ? 'build' : 'plan')}
-          />
-        ) : null}
+        )}
+        {isPlan && <Text dimColor>edits only in .opencode/plan</Text>}
+        <Box flexGrow={1} />
+        <Button key="stats" plain label="Stats" onPress={() => openPanel($)} />
+        {has('modes') && <Button key="switch" plain label={isPlan ? 'Build' : 'Plan'} onPress={toggle} />}
       </Box>
     )
   })
@@ -331,7 +312,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'feathercode-panel' }, async $ => {
     if ((await $.session.surfaces()).length === 0) return { text: statsText(ctx) }
-    await $.ui.open({ id: PANE, title: 'feathercode' })
+    await openPanel($)
     return { text: 'feathercode panel opened.' }
   })
 
@@ -384,6 +365,10 @@ async function flush($: EngineInterface, ctx: Ctx): Promise<void> {
   if (!w) return ctx.log.writing
   ctx.log.writing = ctx.log.writing.then(() => $.fs.write(`${$.plugin.root}/logs/${w.file}`, w.text)).catch(() => undefined)
   return ctx.log.writing
+}
+
+async function openPanel($: EngineInterface): Promise<void> {
+  await $.ui.open({ id: PANE, title: 'feathercode' })
 }
 
 /** Redraws the band with the latest figures. */

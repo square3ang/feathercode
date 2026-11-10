@@ -230,12 +230,6 @@ export function status(stats: Stats, mode: string, contextPercent?: number): Sta
   }
 }
 
-/** A ten-cell bar for a percentage. */
-export function bar(percent: number): string {
-  const n = Math.max(0, Math.min(10, Math.round(percent / 10)))
-  return '▰'.repeat(n) + '▱'.repeat(10 - n)
-}
-
 export function formatStats(stats: Stats, logPath: string | undefined, extra: string[] = []): string {
   const t = stats.totals()
   const prompt = t.input + t.cacheRead + t.cacheWrite

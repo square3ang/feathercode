@@ -52,7 +52,7 @@ test('logs each request and reports it in /feathercode-stats', { options: { feat
       component: 'AbovePrompt',
       props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
     })
-    expect(await ui.find({ type: 'Text', text: /BUILD/ })).toBeDefined()
+    expect(await ui.find({ type: 'Button', key: 'mode' })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /cache 65%/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /1 req · in 153 · out 7/ })).toBeDefined()
     await ui.unmount()

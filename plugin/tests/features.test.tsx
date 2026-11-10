@@ -153,7 +153,7 @@ describe('build / plan', () => {
         component: 'AbovePrompt',
         props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
       })
-      expect(await ui.find({ type: 'Text', text: /PLAN/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /edits only in/ })).toBeDefined()
       await ui.unmount()
     }
     const ui = await $.ui.mount({
