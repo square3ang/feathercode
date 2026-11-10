@@ -230,7 +230,8 @@ export const register: Register = (on, options) => {
     // bodyColumns counts terminal cells; a graphical surface draws Buttons wider, so it gets no fixed width.
     const width = e.surface === 'terminal' ? e.props.bodyColumns : undefined
     return (
-      <Box flexDirection="row" alignItems="center" gap={2} width={width}>
+      // marginTop "sm": no row in the terminal, the surface's small step elsewhere, off the band stacked above.
+      <Box flexDirection="row" alignItems="center" gap={2} width={width} marginTop="sm">
         <Button key="mode" plain onPress={toggle}>
           <Text color={isPlan ? 'planMode' : 'claude'}>●</Text> {isPlan ? 'plan' : 'build'}
         </Button>
