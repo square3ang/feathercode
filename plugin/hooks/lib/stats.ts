@@ -201,6 +201,41 @@ export class Stats {
   }
 }
 
+const short = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n))
+
+export type Status = {
+  mode: string
+  /** Context use in percent, once the session reported it. */
+  ctx?: number
+  requests: number
+  /** Cache hit in percent of prompt tokens (0 before any request). */
+  cache: number
+  input: string
+  output: string
+  breaks: number
+}
+
+/** The figures the status line and the band show. */
+export function status(stats: Stats, mode: string, contextPercent?: number): Status {
+  const t = stats.totals()
+  const prompt = t.input + t.cacheRead + t.cacheWrite
+  return {
+    mode,
+    ctx: contextPercent === undefined ? undefined : Math.round(contextPercent),
+    requests: t.requests,
+    cache: prompt > 0 ? Math.round((100 * t.cacheRead) / prompt) : 0,
+    input: short(prompt),
+    output: short(t.output),
+    breaks: t.breaks,
+  }
+}
+
+/** A ten-cell bar for a percentage. */
+export function bar(percent: number): string {
+  const n = Math.max(0, Math.min(10, Math.round(percent / 10)))
+  return '▰'.repeat(n) + '▱'.repeat(10 - n)
+}
+
 export function formatStats(stats: Stats, logPath: string | undefined, extra: string[] = []): string {
   const t = stats.totals()
   const prompt = t.input + t.cacheRead + t.cacheWrite

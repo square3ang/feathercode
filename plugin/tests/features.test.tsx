@@ -153,7 +153,7 @@ describe('build / plan', () => {
         component: 'AbovePrompt',
         props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
       })
-      expect(await ui.find({ type: 'Text', text: /plan/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /PLAN/ })).toBeDefined()
       await ui.unmount()
     }
     const ui = await $.ui.mount({
@@ -162,7 +162,7 @@ describe('build / plan', () => {
       component: 'AbovePrompt',
       props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
     })
-    await ui.press({ key: 'build' })
+    await ui.press({ key: 'mode' })
     const stats = await $.command.run(cmd('feathercode-stats'))
     expect(stats.text).toContain('mode: build')
     await ui.unmount()

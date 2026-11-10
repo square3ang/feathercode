@@ -37,6 +37,7 @@ Answer `y` to add the marketplace, then pick a scope.
 | Modes | Claude Code plan mode | `/fc-plan` and `/fc-build` (OpenCode plan agent): plan denies Edit/Write/NotebookEdit outside `<project>/.opencode/plan`, one reminder per switch appended at the end |
 | Compaction | Claude Code's summary | Claude Code decides when (its own auto threshold, `/compact`); OpenCode dev decides how: same-prefix summary (`$.model.fork`, cache-warm), its template, newest 15k tokens kept in a `<conversation-checkpoint>`; when the fork fails, dev's text fallback (exchanges shortened oldest first to fit) |
 | Prune | — | OpenCode v1 prune as an option (off) |
+| Band above the prompt | — | same design in the terminal and the desktop app: mode chip (BUILD / PLAN), context bar, cache hit %, requests and tokens, cache breaks, a plan/build switch button |
 
 Every change keeps the start of the request fixed for the whole session:
 nothing earlier in the conversation is rewritten (except by compaction or

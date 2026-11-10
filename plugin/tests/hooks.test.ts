@@ -45,6 +45,18 @@ test('logs each request and reports it in /feathercode-stats', { options: { feat
     // drain
   }
   await stream
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({
+      plugin: 'feathercode',
+      surface,
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never,
+    })
+    expect(await ui.find({ type: 'Text', text: /BUILD/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /cache 65%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /1 req · in 153 · out 7/ })).toBeDefined()
+    await ui.unmount()
+  }
   const out = await $.command.run(cmd('feathercode-stats'))
   expect(out.text).toContain('requests 1')
   expect(out.text).toContain('cache read 100')

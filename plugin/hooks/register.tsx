@@ -38,7 +38,7 @@ import {
   stripGitStatus,
   systemPrompt,
 } from './lib/prompts'
-import { Stats, formatStats } from './lib/stats'
+import { Stats, bar, formatStats, status } from './lib/stats'
 import { deferralFor } from './lib/tools'
 
 const PANE = 'feathercode-stats'
@@ -60,6 +60,8 @@ type Ctx = {
   compacting: boolean
   /** The context window the session last reported (0: not yet). */
   window: number
+  /** Context use the session last reported, in percent. */
+  percent?: number
 }
 
 export const register: Register = (on, options) => {
@@ -92,6 +94,7 @@ export const register: Register = (on, options) => {
     }
     if (has('agents')) await registerAgents($, ctx)
     if (ctx.cfg.panel && (await $.session.surfaces()).length > 0) void $.ui.open({ id: PANE, title: 'feathercode' })
+    showStatus($, ctx)
     return next(e)
   })
 
@@ -105,6 +108,8 @@ export const register: Register = (on, options) => {
     if (e.changed.includes('context')) {
       writeLog(ctx.log, { t: Date.now(), ev: 'measure', tokens: e.context.tokens, window: e.context.window, percent: e.context.percent })
       ctx.window = e.context.window
+      ctx.percent = e.context.percent
+      showStatus($, ctx)
       // Compaction itself is Claude Code's trigger; only the opt-in prune is requested here.
       if (has('compact') && ctx.pendingPrune) await requestPrune($, ctx)
     }
@@ -214,17 +219,56 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'fc-plan' }, async $ => ({ text: await switchMode($, ctx, 'plan') }))
   on('command.run', { command: 'fc-build' }, async $ => ({ text: await switchMode($, ctx, 'build') }))
 
+  // The band above the prompt, one design on every surface: a mode chip, the
+  // context bar, cache hit, tokens, and the plan/build switch. The terminal
+  // ignores size/weight/tabular and draws the chip as an inverse cell.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (!has('modes') || e.props.hasSurvey) return next(e)
-    if (ctx.mode !== 'plan') return next(e)
+    if (e.props.hasSurvey) return next(e)
+    const isPlan = has('modes') && ctx.mode === 'plan'
     const { Box, Text, Button } = $.ui.resolve(e)
+    const s = status(ctx.stats, ctx.mode, ctx.percent)
+    const level = (n: number, warn: number, bad: number) => (n >= bad ? 'error' : n >= warn ? 'warning' : 'subtle')
     return (
-      <Box>
-        <Text color="yellow" bold>
-          plan
+      <Box flexDirection="row" flexWrap="wrap" alignItems="center" gap={1} paddingX={1} borderStyle="round" borderColor="promptBorder">
+        <Text backgroundColor={isPlan ? 'planMode' : 'claude'} color="inverseText" size="caption" weight="semibold">
+          {isPlan ? ' PLAN ' : ' BUILD '}
         </Text>
-        <Text dimColor> read-only: edits only in {planDir(ctx.root)} </Text>
-        <Button key="build" label="Switch to build" onPress={() => switchMode($, ctx, 'build')} />
+        <Text size="caption" weight="medium">
+          feathercode
+        </Text>
+        {s.ctx !== undefined ? (
+          <Text size="caption" mono tabular color={level(s.ctx, 70, 85)}>
+            {bar(s.ctx)} {s.ctx}%
+          </Text>
+        ) : null}
+        {s.requests > 0 ? (
+          <Text size="caption" tabular color={s.cache >= 80 ? 'success' : 'warning'}>
+            cache {s.cache}%
+          </Text>
+        ) : null}
+        {s.requests > 0 ? (
+          <Text size="caption" tabular dimColor>
+            {s.requests} req · in {s.input} · out {s.output}
+          </Text>
+        ) : null}
+        {s.breaks > 0 ? (
+          <Text size="caption" color="warning">
+            {s.breaks} cache break{s.breaks === 1 ? '' : 's'}
+          </Text>
+        ) : null}
+        {isPlan ? (
+          <Text size="caption" dimColor>
+            edits only in {planDir(ctx.root)}
+          </Text>
+        ) : null}
+        {has('modes') ? (
+          <Button
+            key="mode"
+            label={isPlan ? 'Switch to build' : 'Plan'}
+            variant={isPlan ? 'primary' : 'secondary'}
+            onPress={() => switchMode($, ctx, isPlan ? 'build' : 'plan')}
+          />
+        ) : null}
       </Box>
     )
   })
@@ -268,6 +312,7 @@ export const register: Register = (on, options) => {
     const r = yield* next(e)
     const rec = ctx.stats.step(e, r.usage, started, Date.now())
     writeLog(ctx.log, { t: started, ev: 'step', ...rec, ms: Date.now() - started, stop: r.stopReason, tools: r.toolUses.map(t => t.name) })
+    showStatus($, ctx)
     void flush($, ctx)
     return r
   })
@@ -341,6 +386,11 @@ async function flush($: EngineInterface, ctx: Ctx): Promise<void> {
   return ctx.log.writing
 }
 
+/** Redraws the band with the latest figures. */
+function showStatus($: EngineInterface, ctx: Ctx): void {
+  $.ui.invalidate('ui.render')
+}
+
 function statsText(ctx: Ctx): string {
   return formatStats(ctx.stats, ctx.log.file ? `<plugin>/logs/${ctx.log.file}` : undefined, [
     `features: ${[...ctx.cfg.features].join(',') || 'observe only'} | mode: ${ctx.mode}`,
@@ -353,6 +403,7 @@ async function switchMode($: EngineInterface, ctx: Ctx, mode: Mode): Promise<str
   ctx.mode = mode
   await $.store.set(`mode:${ctx.sessionId}`, mode)
   $.ui.invalidate('ui.render')
+  showStatus($, ctx)
   const dir = planDir(ctx.root)
   const reminder = mode === 'plan' ? planEnter(dir) : PLAN_LEAVE
   try {
