@@ -5,8 +5,8 @@ import {
   PRUNE_MINIMUM,
   applyPrune,
   buildPrompt,
-  ceiling,
   checkpoint,
+  flattenHistory,
   hasTemplate,
   isCheckpoint,
   messageToText,
@@ -92,11 +92,27 @@ describe('prompt and checkpoint', () => {
     expect(hasTemplate('Sure, here is a summary')).toBe(false)
   })
 
-  test('ceiling is window - max(10%, 16k), or window - buffer', async () => {
-    expect(ceiling(200_000)).toBe(180_000)
-    expect(ceiling(1_000_000)).toBe(900_000)
-    expect(ceiling(100_000)).toBe(84_000)
-    expect(ceiling(200_000, 50_000)).toBe(150_000)
+  test('text fallback shortens oldest exchanges first, never drops the newest', async () => {
+    const big = 'o'.repeat(40_000)
+    const msgs = [
+      user('old'),
+      assistant('a1', [{ id: 't1', out: big }]),
+      results([{ id: 't1', out: big }]),
+      user('new'),
+      assistant('a2', [{ id: 't2', out: big }]),
+      results([{ id: 't2', out: big }]),
+    ]
+    const whole = flattenHistory(msgs, 1_000_000)!
+    expect(whole).toContain(big)
+    const clipped = flattenHistory(msgs, 12_000)!
+    expect(clipped).toContain('[User]: old')
+    expect(clipped).toContain('characters omitted')
+    expect(clipped.length).toBeLessThan(whole.length)
+    expect(flattenHistory(msgs, 60)).toContain('[Tool result omitted]')
+    const tight = flattenHistory(msgs, 13)!
+    expect(tight).toContain('[1 older exchange omitted]')
+    expect(tight).toContain('[User]: new')
+    expect(flattenHistory(msgs, 1)).toBeUndefined()
   })
 })
 

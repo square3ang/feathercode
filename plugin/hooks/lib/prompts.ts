@@ -1,4 +1,4 @@
-// Prompt texts ported from OpenCode, branch v2 (commit 0d07f91, 2.0.24):
+// Prompt texts ported from OpenCode, branch dev (commit 6c5d38d, 2.2.7):
 //   packages/core/src/session/runner/prompt/system.txt
 //   packages/core/src/session/system-prompt.ts        (tool guidance)
 //   packages/core/src/plugin/system-prompt/anthropic.txt
@@ -7,11 +7,11 @@
 //   packages/core/src/skill/instructions.ts           (skill listing)
 //   packages/core/src/tool/plugin/*.ts                (tool descriptions)
 // Copyright (c) 2025 opencode, MIT License (see ../../NOTICE.md).
-// Adapted: Claude Code tool and parameter names (Bash, Edit `old_string`,
-// ...), Claude Code tool behaviour (read-before-edit, background agents),
-// and the harness name.
+// The system prompt is verbatim, "OpenCode" renamed "FeatherCode"; tool
+// descriptions are adapted to Claude Code tool and parameter names and
+// behaviour (read-before-edit, background agents).
 
-/** Tool guidance lines (session/system-prompt.ts), by Claude Code tool name. */
+/** Tool guidance lines (session/system-prompt.ts), verbatim; dev's shell/write/edit are Bash/Write/Edit. */
 export function toolGuidance(tools: readonly string[]): string {
   const lines: string[] = []
   if (tools.includes('Bash')) {
@@ -21,53 +21,43 @@ export function toolGuidance(tools: readonly string[]): string {
     )
   }
   if (tools.includes('Write')) {
-    lines.push('- Use the Write tool to create files or completely replace their content. Prefer using the Edit tool for targeted changes.')
+    lines.push('- Use the write tool to create files or completely replace their content. Prefer using the edit tool for targeted changes.')
   }
   if (tools.includes('Edit')) {
     lines.push(
-      '- Use the Edit tool for targeted changes to existing text files. It replaces the exact text in `old_string` with `new_string`, and the values must differ. By default, `old_string` must occur exactly once. If it occurs multiple times, include more surrounding context to make it unique or set `replace_all` to true to replace every occurrence.',
+      '- Use the edit tool for targeted changes to existing text files. It replaces the exact text in `oldString` with `newString`, and the values must differ. By default, `oldString` must occur exactly once. If it occurs multiple times, include more surrounding context to make it unique or set `replaceAll` to true to replace every occurrence.',
     )
   }
   return lines.join('\n')
 }
 
-/**
- * System block 0: system.txt with tool guidance, then anthropic.txt.
- * `policy` is the engine's own safety line, kept verbatim when present.
- */
-export function systemPrompt(tools: readonly string[], policy?: string): string {
-  const guidance = toolGuidance(tools)
-  return [
-    'You are an AI agent running in a coding agent harness. Help the user accomplish their goals using the tools you have available.',
-    ...(policy ? ['', policy] : []),
-    '',
-    '# Harness',
-    '- Responses are rendered as GitHub-flavored Markdown.',
-    '- `<system-reminder>` blocks are harness instructions, not user-authored content. Read and follow them.',
-    '- A denied tool call means the user declined it; adjust instead of retrying it unchanged.',
-    '- Prefer parallelizing independent tool calls.',
-    ...(guidance ? [guidance] : []),
-    '',
-    '# Communication',
-    '- Use clear file paths when referring to files.',
-    '- Keep responses clear and concise, and avoid unnecessary technical jargon.',
-    '',
-    '# Working in codebases',
-    '- Keep changes consistent with the structure, naming, style, and patterns of the surrounding code.',
-    '- Treat unfamiliar files or changes as potential user work and investigate before deleting or overwriting them.',
-    '',
-    '# Code comments',
-    'By default, match the surrounding comment density: where the code has none, add none. Use comments sparingly, only where they are appropriate, such as for behavior that is not obvious from the code itself. Instructions from the user or the project take precedence over this guidance.',
-  ].join('\n')
-}
+/** runner/prompt/system.txt, verbatim but for the harness name. */
+const SYSTEM_TXT = `You are an AI agent running in FeatherCode, a coding agent harness. Help the user accomplish their goals using the tools you have available.
 
-/** The engine's security policy line, found in its own sections. */
-export function findPolicy(texts: readonly string[]): string | undefined {
-  for (const t of texts) {
-    const m = /^IMPORTANT: Assist with authorized security testing[^\n]*$/m.exec(t)
-    if (m) return m[0]
-  }
-  return undefined
+# Harness
+- Responses are rendered as GitHub-flavored Markdown.
+- \`<system-reminder>\` blocks are harness instructions, not user-authored content. Read and follow them.
+- Prefer parallelizing independent tool calls.
+\${OPENCODE_TOOL_GUIDANCE}
+
+# Communication
+- Use clear file paths when referring to files.
+- Keep responses clear and concise, and avoid unnecessary technical jargon.
+
+# Working in codebases
+- Keep changes consistent with the structure, naming, style, and patterns of the surrounding code.
+- Treat unfamiliar files or changes as potential user work and investigate before deleting or overwriting them.
+`
+
+/** plugin/system-prompt/anthropic.txt, verbatim. */
+const ANTHROPIC_TXT = `# Code comments
+By default, match the surrounding comment density: where the code has none, add none. Use comments sparingly, only where they are appropriate, such as for behavior that is not obvious from the code itself. Instructions from the user or the project take precedence over this guidance.
+`
+
+/** System block 0 as dev builds it for Claude: system.txt rendered, then anthropic.txt appended (optimize.ts). */
+export function systemPrompt(tools: readonly string[]): string {
+  const render = (p: string) => p.replace('${OPENCODE_TOOL_GUIDANCE}', toolGuidance(tools))
+  return `${render(SYSTEM_TXT)}\n\n${render(ANTHROPIC_TXT)}`
 }
 
 /** Plan mode reminders (plugin/plan.ts), sent once per switch. */
@@ -128,11 +118,15 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
     "Search file contents using ripgrep's regular expression syntax. Use it to locate specific code, symbols, or text patterns, and narrow searches with `path`, `glob` or `type`. Returns matching file paths, line numbers, or line previews depending on `output_mode`.",
   Skill:
     "Load a specialized skill's instructions and resources into the current conversation when the task at hand matches its description.\n\nThe `skill` name must match an available skill or a skill explicitly referenced by the user; `args` passes optional arguments.",
+  // Claude Code agents always run in the background (no foreground option), so
+  // dev's background guidance applies to every call.
   Agent: [
     'Spawns an agent to work on the specified task; choose its type with `subagent_type` from the agent types listed in the conversation.',
-    "New agents start with fresh context, so include all relevant context and instructions in `prompt`.",
-    'Agents run in the background by default and you are notified when one finishes; pass `run_in_background: false` when your next step depends on its result.',
-    'Use background only for independent work that can run while you continue elsewhere. Never predict a pending agent\'s result.',
+    'New agents start with fresh context, so include all relevant context and instructions in `prompt`.',
+    'Agents run in the background and return immediately; you are notified automatically when one finishes.',
+    "DO NOT sleep, poll for progress, or duplicate an agent's work; avoid working with the same files or topics it is using. Never predict a pending agent's result.",
+    'Use an agent only for independent work that can run while you continue elsewhere; do a lookup of a few tool calls yourself. Otherwise briefly tell the user what you launched and end your response.',
+    'To send it follow-ups while it runs, use SendMessage with its id.',
     "The agent's final report is not shown to the user; relay what matters.",
   ].join('\n'),
   AskUserQuestion: `Use this tool when you need to ask the user questions during execution. This allows you to:

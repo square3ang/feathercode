@@ -17,7 +17,7 @@
     "compaction_auto": {
       "type": "boolean",
       "title": "Auto compaction",
-      "description": "Compact automatically when the context overflows (OpenCode compaction.auto)",
+      "description": "Let Claude Code's automatic compaction run (answered with OpenCode's algorithm); off skips it (OpenCode compaction.auto)",
       "default": true
     },
     "compaction_prune": {
@@ -33,14 +33,6 @@
       "default": 15000,
       "min": 0,
       "max": 200000
-    },
-    "compaction_buffer": {
-      "type": "number",
-      "title": "Compaction buffer",
-      "description": "Compact when the context reaches window minus this many tokens; 0 uses OpenCode's max(10%, 16k) (OpenCode v2 compaction.buffer)",
-      "default": 0,
-      "min": 0,
-      "max": 500000
     },
     "compaction_tail": {
       "type": "string",

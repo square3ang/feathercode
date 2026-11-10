@@ -1,5 +1,5 @@
-// Compaction ported from OpenCode, branch v2 (commit 0d07f91):
-//   packages/core/src/session/compaction.ts           (template, rules, prompt, split, ceiling)
+// Compaction ported from OpenCode, branch dev (commit 6c5d38d, 2.2.7):
+//   packages/core/src/session/compaction.ts           (template, rules, prompt, split, text fallback)
 //   packages/core/src/session/runner/to-llm-message.ts (checkpoint wrapper)
 // and prune from OpenCode dev (v1, packages/opencode/src/session/compaction.ts),
 // which v2 removed; kept here as an opt-in option.
@@ -212,11 +212,81 @@ export function splitConversation(messages: readonly Msg[], keep: number): Split
   }
 }
 
-/** calculateCeiling (v2): window − buffer, else window − max(10%, 16k). */
-export function ceiling(window: number, buffer?: number): number {
-  if (window <= 0) return Number.POSITIVE_INFINITY
-  if (buffer !== undefined && buffer > 0) return window - buffer
-  return window - Math.max(Math.floor(window * 0.1), window >= 32_000 ? RESERVE_MIN : 0)
+// ---- text fallback (dev flattenAndDropOldest) --------------------------------
+
+/** Window assumed when the session has not reported one (dev UNKNOWN_WINDOW). */
+export const UNKNOWN_WINDOW = 200_000
+/** Output room kept for the summary (dev RESERVE_MIN). */
+export const SUMMARY_ROOM = RESERVE_MIN
+const TRANSCRIPT_CLIP = 2_000
+const OUTPUTS_CLIPPED = 1
+const OUTPUTS_REMOVED = 2
+const USER_ONLY = 3
+const OMITTED = 4
+const TRANSCRIPT_LEVELS = [0, OUTPUTS_CLIPPED, OUTPUTS_REMOVED, USER_ONLY, OMITTED]
+
+/** `value` cut to TRANSCRIPT_CLIP characters from its start and end. */
+export function clip(value: string): string {
+  const chars = Array.from(value)
+  if (chars.length <= TRANSCRIPT_CLIP) return value
+  const half = TRANSCRIPT_CLIP / 2
+  return `${chars.slice(0, half).join('')}\n[… ${chars.length - TRANSCRIPT_CLIP} characters omitted …]\n${chars.slice(-half).join('')}`
+}
+
+/** One message as transcript lines at a shortening level (dev flattenMessage). */
+function flattenMessage(m: Msg, level: number): string {
+  if (level === OMITTED || isCheckpoint(m)) return ''
+  if (m.role === 'user') {
+    if ((m.toolResults?.length ?? 0) > 0 || !m.text.trim()) return '' // results are shown with the call
+    return `[User]: ${level >= USER_ONLY ? clip(m.text) : m.text}`
+  }
+  if (level >= USER_ONLY) return ''
+  const parts: string[] = []
+  if (m.text.trim()) parts.push(`[Assistant]: ${m.text}`)
+  for (const use of m.toolUses) {
+    const input = JSON.stringify(use.input) ?? ''
+    parts.push(`[Assistant tool call]: ${use.tool}(${level >= OUTPUTS_REMOVED ? clip(input) : input})`)
+    if (use.text === undefined) continue
+    const label = use.isError ? 'Tool error' : 'Tool result'
+    parts.push(level >= OUTPUTS_REMOVED ? `[${label} omitted]` : `[${label}]: ${level >= OUTPUTS_CLIPPED ? clip(use.text) : use.text}`)
+  }
+  return parts.join('\n')
+}
+
+/**
+ * dev flattenAndDropOldest: the history as one text, a previous checkpoint
+ * first and whole, then each exchange (a user prompt and what follows it),
+ * shortened oldest first through the levels until it fits `room` tokens; the
+ * newest exchange is shortened but never left out. Undefined if it cannot fit.
+ */
+export function flattenHistory(messages: readonly Msg[], room: number): string | undefined {
+  const lead = messages[0] && isCheckpoint(messages[0]) ? messages[0].text : ''
+  const groups: Msg[][] = []
+  for (const m of messages.slice(lead ? 1 : 0)) {
+    if (isPrompt(m) || groups.length === 0) groups.push([m])
+    else groups[groups.length - 1]!.push(m)
+  }
+  const exchanges = groups
+    .map(g => TRANSCRIPT_LEVELS.map(level => g.map(m => flattenMessage(m, level)).filter(Boolean).join('\n')))
+    .filter(r => r[0])
+  if (exchanges.length === 0) return lead || undefined
+  const note = (n: number) => (n ? `[${n} older ${n === 1 ? 'exchange' : 'exchanges'} omitted]\n\n` : '')
+  const size = (text: string) => (text ? estimate(text) + 1 : 0)
+  const budget = room - estimate(lead) - estimate(note(exchanges.length))
+  const levels = exchanges.map(() => 0)
+  let total = exchanges.reduce((n, r) => n + size(r[0]!), 0)
+  const newest = exchanges.length - 1
+  for (const level of TRANSCRIPT_LEVELS.slice(1)) {
+    for (let i = 0; i < exchanges.length && total > budget; i++) {
+      if (i === newest && !exchanges[i]![level]) continue
+      total += size(exchanges[i]![level]!) - size(exchanges[i]![levels[i]!]!)
+      levels[i] = level
+    }
+  }
+  if (total > budget) return undefined
+  const omitted = levels.filter((level, i) => !exchanges[i]![level]).length
+  const text = exchanges.map((r, i) => r[levels[i]!]).filter(Boolean).join('\n\n')
+  return [lead, note(omitted) + text].filter(Boolean).join('\n\n')
 }
 
 // ---- prune (OpenCode v1; v2 removed it) -------------------------------------

@@ -19,8 +19,8 @@ describe('system prompt', () => {
     expect(ids).toEqual(['feathercode:system', 'other-mod:rules'])
     const sys = r.sections[0]!
     expect(sys.scope).toBe('shared')
-    expect(sys.text).toContain('IMPORTANT: Assist with authorized security testing, the policy.')
-    expect(sys.text).toContain('Use the Edit tool for targeted changes')
+    expect(sys.text.startsWith('You are an AI agent running in FeatherCode, a coding agent harness.')).toBe(true)
+    expect(sys.text).toContain('Use the edit tool for targeted changes')
     expect(sys.text).toContain('# Code comments')
     expect(sys.text).not.toContain('OpenCode')
   })
@@ -94,7 +94,7 @@ describe('build / plan', () => {
     const session = mock.session(on)
     on('tool.check', () => ({ decision: 'allow' }))
     await $.session.start(START)
-    const out = await $.command.run(cmd('plan'))
+    const out = await $.command.run(cmd('fc-plan'))
     expect(out.text).toContain('Plan mode')
     const denied = await $.tool.check({ tool: 'Edit', input: { file_path: '/work/a.py', old_string: 'a', new_string: 'b' } })
     expect(denied.decision).toBe('deny')
@@ -105,8 +105,8 @@ describe('build / plan', () => {
     expect(sneaky.decision).toBe('deny')
     const bash = await $.tool.check({ tool: 'Bash', input: { command: 'ls' } })
     expect(bash.decision).toBe('allow')
-    expect((await $.command.run(cmd('plan'))).text).toContain('Already')
-    await $.command.run(cmd('build'))
+    expect((await $.command.run(cmd('fc-plan'))).text).toContain('Already')
+    await $.command.run(cmd('fc-build'))
     const ok = await $.tool.check({ tool: 'Edit', input: { file_path: '/work/a.py', old_string: 'a', new_string: 'b' } })
     expect(ok.decision).toBe('allow')
     const texts = session.appended().map(r => JSON.stringify(r.message.content))
@@ -122,7 +122,7 @@ describe('build / plan', () => {
     await $.session.start(START)
     expect((await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })).decision).toBe('deny')
     expect((await $.tool.check({ tool: 'Edit', input: { file_path: '/work/a', old_string: 'a', new_string: 'b' } })).decision).toBe('ask')
-    await $.command.run(cmd('plan'))
+    await $.command.run(cmd('fc-plan'))
     expect((await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })).decision).toBe('deny')
     const inPlan = await $.tool.check({ tool: 'Write', input: { file_path: '/work/.opencode/plan/p.md', content: '' } })
     expect(inPlan.decision).toBe('ask')
@@ -145,7 +145,7 @@ describe('build / plan', () => {
     world(on)
     mock.session(on)
     await $.session.start(START)
-    await $.command.run(cmd('plan'))
+    await $.command.run(cmd('fc-plan'))
     for (const surface of ['terminal', 'desktop'] as const) {
       const ui = await $.ui.mount({
         plugin: 'feathercode',

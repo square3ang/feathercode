@@ -1,7 +1,7 @@
 # Third-party notices
 
 feathercode ports prompts and algorithms from OpenCode
-(https://github.com/anomalyco/opencode, branch v2), used under the MIT License:
+(https://github.com/anomalyco/opencode, branch dev), used under the MIT License:
 
 ```
 MIT License

@@ -7,8 +7,6 @@ export type Config = {
   compactionAuto: boolean
   compactionPrune: boolean
   keepTokens: number
-  /** 0: OpenCode's max(10%, 16k) reserve. */
-  compactionBuffer: number
   compactionTail: 'text' | 'messages'
   panel: boolean
 }
@@ -33,7 +31,6 @@ export function resolveConfig(o: Record<string, unknown>): Config {
     compactionAuto: o.compaction_auto !== false,
     compactionPrune: o.compaction_prune === true,
     keepTokens: num(o.keep_tokens, 15_000),
-    compactionBuffer: num(o.compaction_buffer, 0),
     compactionTail: o.compaction_tail === 'messages' ? 'messages' : 'text',
     panel: o.panel === true,
   }

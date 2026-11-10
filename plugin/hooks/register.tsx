@@ -1,5 +1,5 @@
 // feathercode — an OpenCode-style harness for Claude Code.
-// Portions ported from OpenCode (https://github.com/anomalyco/opencode, branch v2),
+// Portions ported from OpenCode (https://github.com/anomalyco/opencode, branch dev),
 // Copyright (c) 2025 opencode, MIT License. See ../NOTICE.md.
 //
 // Every hook and every `$` call lives in this file (the engine follows `$`
@@ -8,13 +8,15 @@ import type { EngineInterface, Register, SessionCompactInput, SessionCompactResu
 
 import {
   NUDGE,
+  SUMMARY_ROOM,
+  UNKNOWN_WINDOW,
   applyPrune,
   buildPrompt,
-  ceiling,
   checkpoint,
+  estimate,
+  flattenHistory,
   hasTemplate,
   isCheckpoint,
-  messageToText,
   messageTokens,
   planPrune,
   splitConversation,
@@ -31,7 +33,6 @@ import {
   PLAN_LEAVE,
   TOOL_DESCRIPTIONS,
   compactSkillListing,
-  findPolicy,
   planDenied,
   planEnter,
   stripGitStatus,
@@ -45,9 +46,6 @@ const PANE = 'feathercode-stats'
 const PRUNE_MARK = '__feathercode_prune__'
 /** Built-in agent types the feathercode ones replace. */
 const REPLACED_AGENTS = new Set(['Explore', 'general-purpose', 'Plan', 'claude'])
-/** Fallback for the engine's security line until a compose has shown it. */
-const POLICY_FALLBACK =
-  'IMPORTANT: Assist with authorized security testing, defensive security, CTF challenges, and educational contexts. Refuse requests for destructive techniques, DoS attacks, mass targeting, supply chain compromise, or detection evasion for malicious purposes. Dual-use security tools (C2 frameworks, credential testing, exploit development) require clear authorization context: pentesting engagements, CTF competitions, security research, or defensive use cases.'
 
 type Ctx = {
   cfg: Config
@@ -57,13 +55,11 @@ type Ctx = {
   root: string
   sessionId: string
   mode: Mode
-  policy?: string
-  commands: { plan: string; build: string }
   agentsReady: boolean
   pendingPrune: boolean
   compacting: boolean
-  /** The last main-loop request's input + cache read/write + output (v2's measured size). */
-  lastMainTokens: number
+  /** The context window the session last reported (0: not yet). */
+  window: number
 }
 
 export const register: Register = (on, options) => {
@@ -75,11 +71,10 @@ export const register: Register = (on, options) => {
     root: '.',
     sessionId: '',
     mode: 'build',
-    commands: { plan: 'plan', build: 'build' },
     agentsReady: false,
     pendingPrune: false,
     compacting: false,
-    lastMainTokens: 0,
+    window: 0,
   }
   const has = (f: Feature) => ctx.cfg.features.has(f)
 
@@ -90,7 +85,9 @@ export const register: Register = (on, options) => {
     await $.command.register({ name: 'feathercode-stats', description: 'Token and prompt-cache usage of this session' })
     await $.command.register({ name: 'feathercode-panel', description: 'Show token and prompt-cache usage in a pane' })
     if (has('modes')) {
-      await registerModeCommands($, ctx)
+      // /plan is Claude Code's own command, so the agents register as fc-*.
+      await $.command.register({ name: 'fc-plan', description: 'Plan agent: read-only, edits only in the plan directory (OpenCode plan)' })
+      await $.command.register({ name: 'fc-build', description: 'Build agent: the default, full tool access (OpenCode build)' })
       await restoreMode($, ctx)
     }
     if (has('agents')) await registerAgents($, ctx)
@@ -107,7 +104,9 @@ export const register: Register = (on, options) => {
   on('session.measure', async ($, e, next) => {
     if (e.changed.includes('context')) {
       writeLog(ctx.log, { t: Date.now(), ev: 'measure', tokens: e.context.tokens, window: e.context.window, percent: e.context.percent })
-      if (has('compact')) await maybeCompact($, ctx, Math.max(e.context.tokens ?? 0, ctx.lastMainTokens), e.context.window)
+      ctx.window = e.context.window
+      // Compaction itself is Claude Code's trigger; only the opt-in prune is requested here.
+      if (has('compact') && ctx.pendingPrune) await requestPrune($, ctx)
     }
     return next(e)
   })
@@ -119,11 +118,10 @@ export const register: Register = (on, options) => {
     if (!('sections' in r) || !r.sections) return r
     let out = r
     if (has('prompt') && e.outputStyle === null && !e.traits.includes('bare')) {
-      ctx.policy = findPolicy(r.sections.map(s => s.text)) ?? ctx.policy
       const others = r.sections.filter(s => s.id.includes(':') && !s.id.startsWith('feathercode:'))
       out = {
         sections: [
-          { id: 'feathercode:system', text: systemPrompt(e.tools, ctx.policy ?? POLICY_FALLBACK), scope: 'shared' as const },
+          { id: 'feathercode:system', text: systemPrompt(e.tools), scope: 'shared' as const },
           ...others.filter(s => s.scope === 'shared'),
           ...others.filter(s => s.scope === 'session'),
         ],
@@ -213,8 +211,6 @@ export const register: Register = (on, options) => {
       : next(e),
   )
 
-  on('command.run', { command: 'plan' }, async $ => ({ text: await switchMode($, ctx, 'plan') }))
-  on('command.run', { command: 'build' }, async $ => ({ text: await switchMode($, ctx, 'build') }))
   on('command.run', { command: 'fc-plan' }, async $ => ({ text: await switchMode($, ctx, 'plan') }))
   on('command.run', { command: 'fc-build' }, async $ => ({ text: await switchMode($, ctx, 'build') }))
 
@@ -271,7 +267,6 @@ export const register: Register = (on, options) => {
     const started = Date.now()
     const r = yield* next(e)
     const rec = ctx.stats.step(e, r.usage, started, Date.now())
-    if (e.agentId === undefined && r.usage) ctx.lastMainTokens = rec.input + rec.cacheRead + rec.cacheWrite + rec.output
     writeLog(ctx.log, { t: started, ev: 'step', ...rec, ms: Date.now() - started, stop: r.stopReason, tools: r.toolUses.map(t => t.name) })
     void flush($, ctx)
     return r
@@ -352,22 +347,6 @@ function statsText(ctx: Ctx): string {
   ])
 }
 
-/** `/plan` and `/build`; a built-in of that name keeps it, so fall back to fc-*. */
-async function registerModeCommands($: EngineInterface, ctx: Ctx): Promise<void> {
-  try {
-    await $.command.register({ name: 'plan', description: 'Plan agent: read-only, edits only in the plan directory (OpenCode plan)' })
-  } catch {
-    ctx.commands.plan = 'fc-plan'
-    await $.command.register({ name: 'fc-plan', description: 'Plan agent: read-only, edits only in the plan directory (OpenCode plan)' })
-  }
-  try {
-    await $.command.register({ name: 'build', description: 'Build agent: the default, full tool access (OpenCode build)' })
-  } catch {
-    ctx.commands.build = 'fc-build'
-    await $.command.register({ name: 'fc-build', description: 'Build agent: the default, full tool access (OpenCode build)' })
-  }
-}
-
 /** Switches agent: records the mode and appends v2's one-shot reminder. */
 async function switchMode($: EngineInterface, ctx: Ctx, mode: Mode): Promise<string> {
   if (ctx.mode === mode) return `Already in ${mode} mode.`
@@ -384,8 +363,8 @@ async function switchMode($: EngineInterface, ctx: Ctx, mode: Mode): Promise<str
   writeLog(ctx.log, { t: Date.now(), ev: 'mode', mode })
   ctx.stats.noteAll(`mode→${mode}`)
   return mode === 'plan'
-    ? `Plan mode: read-only. Edits are allowed only in ${dir}. /${ctx.commands.build} to switch back.`
-    : `Build mode: full tool access. /${ctx.commands.plan} for read-only planning.`
+    ? `Plan mode: read-only. Edits are allowed only in ${dir}. /fc-build to switch back.`
+    : 'Build mode: full tool access. /fc-plan for read-only planning.'
 }
 
 /** A resumed session (`--continue`, `--resume`) gets its mode back. */
@@ -406,7 +385,7 @@ async function registerAgents($: EngineInterface, ctx: Ctx): Promise<void> {
     await $.agent.register({
       name: 'general',
       description: GENERAL_DESCRIPTION,
-      prompt: systemPrompt(['Bash', 'Write', 'Edit'], ctx.policy ?? POLICY_FALLBACK),
+      prompt: systemPrompt(['Bash', 'Write', 'Edit']),
       disallowedTools: ['AskUserQuestion', 'Agent'],
       model: 'inherit',
     })
@@ -416,33 +395,28 @@ async function registerAgents($: EngineInterface, ctx: Ctx): Promise<void> {
   }
 }
 
-/** v2's trigger: between turns, once the context reaches the ceiling; prune when it frees enough. */
-async function maybeCompact($: EngineInterface, ctx: Ctx, tokens: number, window: number): Promise<void> {
+/** Opt-in v1 prune, between turns, when clearing old tool outputs frees enough. */
+async function requestPrune($: EngineInterface, ctx: Ctx): Promise<void> {
   if (ctx.compacting) return
-  const limit = ceiling(window, ctx.cfg.compactionBuffer || undefined)
-  const due = ctx.cfg.compactionAuto && tokens >= limit
-  if (!due && ctx.pendingPrune) {
-    const current = await $.session.messages()
-    if ('deny' in current || planPrune(current as readonly Msg[]).ids.size === 0) ctx.pendingPrune = false
+  const current = await $.session.messages()
+  if ('deny' in current || planPrune(current as readonly Msg[]).ids.size === 0) {
+    ctx.pendingPrune = false
+    return
   }
-  if (!due && !ctx.pendingPrune) return
   ctx.compacting = true
-  const reason = due ? 'ceiling' : 'prune'
   try {
-    if (due) ctx.pendingPrune = false
-    writeLog(ctx.log, { t: Date.now(), ev: 'compact-request', reason, tokens, limit })
+    writeLog(ctx.log, { t: Date.now(), ev: 'compact-request', reason: 'prune' })
     await $.session.compact()
   } catch (err) {
     // Headless (-p / SDK) sessions refuse $.session.compact between turns; a
-    // queued /compact runs as a turn of its own, with the prune marker as its
-    // instructions when that is what was asked.
-    writeLog(ctx.log, { t: Date.now(), ev: 'error', where: 'maybeCompact', error: String(err) })
+    // queued /compact with the prune marker runs as a turn of its own.
+    writeLog(ctx.log, { t: Date.now(), ev: 'error', where: 'requestPrune', error: String(err) })
     if (/headless/.test(String(err))) {
       try {
-        await $.command.run({ command: 'compact', args: reason === 'prune' ? PRUNE_MARK : '' })
-        writeLog(ctx.log, { t: Date.now(), ev: 'compact-request', reason, via: 'command' })
+        await $.command.run({ command: 'compact', args: PRUNE_MARK })
+        writeLog(ctx.log, { t: Date.now(), ev: 'compact-request', reason: 'prune', via: 'command' })
       } catch (err2) {
-        writeLog(ctx.log, { t: Date.now(), ev: 'error', where: 'maybeCompact.command', error: String(err2) })
+        writeLog(ctx.log, { t: Date.now(), ev: 'error', where: 'requestPrune.command', error: String(err2) })
       }
     }
   } finally {
@@ -490,13 +464,18 @@ async function compact(
     usage: 'usage' in r ? r.usage : undefined,
   })
   if (summary === undefined) {
-    // v2's own fallback form: the older part flattened into one message.
-    const older = messages.slice(0, split.start).map(messageToText).filter(Boolean).join('\n\n')
+    // dev's text fallback (the fork did not fit or failed): the history before
+    // the kept tail as one text, exchanges shortened oldest first to fit.
+    const system = systemPrompt(['Bash', 'Write', 'Edit'])
+    const textPrompt = buildPrompt(update, undefined, e.instructions)
+    const room = (ctx.window || UNKNOWN_WINDOW) - SUMMARY_ROOM - estimate(system) - estimate(textPrompt) - estimate(NUDGE)
+    const older = flattenHistory(messages.slice(0, split.start), room)
+    if (older === undefined) return next(e)
     const c = await $.model.complete({
       model: await $.session.model(),
-      system: systemPrompt(['Bash', 'Write', 'Edit'], ctx.policy ?? POLICY_FALLBACK),
-      prompt: `${older}\n\n${buildPrompt(update, undefined, e.instructions)}`,
-      maxTokens: 8000,
+      system,
+      prompt: `${older}\n\n${textPrompt}`,
+      maxTokens: SUMMARY_ROOM,
     })
     writeLog(ctx.log, { t: Date.now(), ev: 'summary', via: 'complete', ok: c.isAnswered, usage: c.usage })
     if (!c.isAnswered) return next(e)

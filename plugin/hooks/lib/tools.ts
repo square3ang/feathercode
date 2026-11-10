@@ -1,13 +1,10 @@
 /**
  * Which built-in tools stay in the prompt's tool list and which wait behind
- * ToolSearch. OpenCode's model sees a small fixed set (bash, read, edit,
- * write, glob, grep, task, todowrite, webfetch, websearch, skill, question);
- * the light Claude Code equivalents of those stay listed, everything heavier
- * (background, orchestration, worktree, notification, scheduling) is deferred:
- * still callable, its schema loaded by name when the model asks.
- *
- * A tool deferred here and later loaded by ToolSearch adds its schema to the
- * request; bench measures whether that breaks the cache (stage 2).
+ * ToolSearch. OpenCode's model sees a small fixed set (shell, read, edit,
+ * write, glob, grep, subagent, todo, webfetch, websearch, skill, question);
+ * the Claude Code equivalents of those stay listed, every other built-in
+ * (including ones a newer build adds) is deferred: still callable, its schema
+ * loaded by name when the model asks.
  */
 
 /** Kept in the listed set (OpenCode's own set, by Claude Code name). */
@@ -20,6 +17,8 @@ export const KEEP_LISTED: ReadonlySet<string> = new Set([
   'Grep',
   'Agent',
   'TodoWrite',
+  'TaskCreate',
+  'TaskUpdate',
   'WebFetch',
   'WebSearch',
   'Skill',
@@ -27,66 +26,15 @@ export const KEEP_LISTED: ReadonlySet<string> = new Set([
   'ToolSearch',
 ])
 
-/** Built-ins moved behind ToolSearch. */
-export const DEFER: ReadonlySet<string> = new Set([
-  'Workflow',
-  'ScheduleWakeup',
-  'ListAgents',
-  'ReportFindings',
-  'Monitor',
-  'CronCreate',
-  'CronDelete',
-  'CronList',
-  'RemoteTrigger',
-  'SendMessage',
-  'PushNotification',
-  'EnterWorktree',
-  'ExitWorktree',
-  'DesignSync',
-  'NotebookEdit',
-  'TaskStop',
-  'TaskCreate',
-  'TaskGet',
-  'TaskList',
-  'TaskUpdate',
-  'EnterPlanMode',
-  'ExitPlanMode',
-  'LSP',
-  'SendUserMessage',
-  'SendUserFile',
-  'SendFile',
-  'ListConnectors',
-  'ListPlugins',
-  'ListSkills',
-  'SearchPlugins',
-  'SearchSkills',
-  'SearchMcpRegistry',
-  'SuggestConnectors',
-  'SuggestPluginInstall',
-  'SuggestSkills',
-  'ReadMcpResourceTool',
-  'ListMcpResourcesTool',
-  'ReadMcpResourceDirTool',
-  'WaitForMcpServers',
-  'Poll',
-  'GetTask',
-  'FetchInboxMessage',
-  'ReadNotifications',
-  'EndConversation',
-  'ProposeGoal',
-])
-
 /** Tools a pinned list keeps in front even when ToolSearch would load them. */
 export type ToolPolicy = { pin: ReadonlySet<string> }
 
 /**
- * The deferral decision for one tool: true/false to move it, undefined to
- * leave the engine's choice. `pin` names deferred tools measured to break the
- * cache when loaded (stage 2), which then stay listed.
+ * The deferral decision for one built-in: true to defer it, false to list it,
+ * undefined to leave the engine's choice.
  */
 export function deferralFor(tool: string, engineDeferred: boolean, policy: ToolPolicy): boolean | undefined {
   if (policy.pin.has(tool)) return false
-  if (KEEP_LISTED.has(tool)) return undefined // never deferred by us; the engine's own choice stands
-  if (DEFER.has(tool)) return engineDeferred ? undefined : true
-  return undefined
+  if (KEEP_LISTED.has(tool) || engineDeferred) return undefined
+  return true
 }
